@@ -152,12 +152,46 @@ IPC最为核心和基础的功能，莫过于将感光元件采集到的光学�
 
 ## 2.3. 假设与依赖关系
 
-<font color="blue">
-*在软件系统的开发过程中，存在许多假设和依赖关系。在本小节中应列举出所有的重要的技术可行性假设、子系统或构件可用性假设，以及一些可行性的假设。*  
-</font>
 ### 2.3.1. 技术可行性假设
 
+#### 2.3.1.1. 视频流
+
+为了使得用户能够使用绝大多数的通用播放器即能预览设备之画面，设备之视频数据流需要符合以下规范：
+
+* H.264标准
+* RTSP协议（[RFC2326](http：//www.rfc-editor.org/rfc/rfc2326.txt)）
+
+通过预研，目前市面上的解决方案基本都通过硬件编码的形式支持标准的H.264编码格式（Baseline/Main Profile/High Profile)。传输层面，通过开源项目[Live555](www.live555.com)可以实现符合标准的RTSP传输。因此视频数据流的RTSP传输是可行的。
+
+#### 2.3.1.2. 对外接口
+
+现有的市场上，[OnVif](http://www.onvif.org)协议与[GB/T 28181-2011](http://about:blank)协议越来越占据主导地位，从目前的预研看来，通过[gSoap](http://www.cs.fsu.edu/~engelen/soap.html)来实现OnVif也是可行的。
+
+同时，还需要私有化的接口以便提供一些标准未定义的功能调用，通过[FastCGI](www.fastcgi.com)来提供[JSON](http://www.json.org)格式的API是可行的。为此，还需要用到C语言的Json库——[YAJL](http://lloyd.github.io/yajl)。
+
+网络设备的默认规则之一，就是需要提供一个简单的可使用其基础功能的Web界面，那么必不可少的就是要内置一个Web Server，考虑到嵌入式设备的资源有限，[Lighttpd](http://www.lighttpd.net)可以作为首选。其提供的自定义Plugin开发框架，能够满足开发上的灵活性，同时资源消耗又极小。
+
+#### 2.3.1.3. 内部通信
+
+设备内部，各个模块之间需要通信的桥梁，而单纯的Posix IPC或者System V IPC太过于底层，不利于开发，因此使用现代新型的Message Queue就势在必行，经过研究对比，[ØMQ](http://zeromq.org)能够很好的胜任。
+
+#### 2.3.1.4. 开发语言
+
+基于设备资源有限性与性能的考虑，整个系统框架基于C语言来编写，为了便于实现面向对象之设计，所有的程序尽量构建于[GObject](https://developer.gnome.org/gobject/stable)之上。如某个模块所使用之开源代码基于其它语言，则不受此限制。
+
 ### 2.3.2. 依赖关系
+
+结合2.3.1所述，整个系统依赖以下开源模块：
+
+* [Linux Kernel](http://kernel.org)
+* 硬件厂商之驱动
+    * Hi3518 Drivers
+* [GObject](https://developer.gnome.org/gobject/stable)
+* [ØMQ](http://zeromq.org)
+* [Lighttpd](http://www.lighttpd.net)
+* [Live555](www.live555.com)
+* [gSoap](http://www.cs.fsu.edu/~engelen/soap.html)
+* [YAJL](http://lloyd.github.io/yajl)
 
 # 3. 功能需求
 
