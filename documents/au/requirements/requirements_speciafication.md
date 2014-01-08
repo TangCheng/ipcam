@@ -165,7 +165,7 @@ IPC最为核心和基础的功能，莫过于将感光元件采集到的光学�
 
 #### 2.3.1.2. 对外接口
 
-现有的市场上，[OnVif](http://www.onvif.org)协议与[GB/T 28181-2011](http://about:blank)协议越来越占据主导地位，从目前的预研看来，通过[gSoap](http://www.cs.fsu.edu/~engelen/soap.html)来实现OnVif也是可行的。
+现有的市场上，[Onvif](http://www.onvif.org)协议与~~[GB/T 28181-2011](http://about:blank)协议~~越来越占据主导地位，从目前的预研看来，通过[gSoap](http://www.cs.fsu.edu/~engelen/soap.html)来实现Onvif也是可行的。
 
 同时，还需要私有化的接口以便提供一些标准未定义的功能调用，通过[FastCGI](www.fastcgi.com)来提供[JSON](http://www.json.org)格式的API是可行的。为此，还需要用到C语言的Json库——[YAJL](http://lloyd.github.io/yajl)。
 
