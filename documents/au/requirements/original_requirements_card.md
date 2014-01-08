@@ -64,10 +64,10 @@
 
 传输协议应支持以下几种标准：
 
-+ RTSP/RTP [[RFC2326](http：//www.rfc-editor.org/rfc/rfc2326.txt)/[RFC3550](http：//www.rfc-editor.org/rfc/rfc3550.txt)]
++ RTSP/RTP [[RFC2326](http://tools.ietf.org/html/rfc2326)]/[[RFC3550](http://tools.ietf.org/html/rfc3550)][[RFC3984](http://tools.ietf.org/html/rfc3984)]
     + RTP Over RTSP(Tcp)
-    + tunneling RTSP and RTP over Http [[Rtsp over http - Apple Inc.](http：//www.opensource.apple.com/source/QuickTimeStreamingServer/QuickTimeStreamingServer-412.42/Documentation/RTSP_Over_HTTP.pdf)]
-+ RTCP [[RFC3550](http：//www.rfc-editor.org/rfc/rfc3550.txt)]
+    + tunneling RTSP and RTP over Http [[Rtsp over http - Apple Inc.](http://www.opensource.apple.com/source/QuickTimeStreamingServer/QuickTimeStreamingServer-412.42/Documentation/RTSP_Over_HTTP.pdf)]
++ RTCP [[RFC3550](http:/tools.ietf.org/html/rfc3550)]
 
 ### 来源：同类产品
 ### 验收标准：已知符合上述标准协议的通用播放器，应能直接连接网络摄像机并正确播放音视频。
@@ -103,7 +103,7 @@ Web页面需要支持的语言有：
 ## 需求标题：Onvif协议
 ## 优先级：高
 ### 描述：
-网络摄像机应支持[Onvif](http：//www.onvif.org)协议。可通过Onvif协议发现、控制和配置网络摄像机。
+网络摄像机应支持[Onvif](http://www.onvif.org)协议。可通过Onvif协议发现、控制和配置网络摄像机。
 ### 来源：同类产品
 ### 验收标准：通过已知符合Onvif协议的客户端能够正确的对接网络摄像机。
 ### 依赖关系：无
@@ -114,7 +114,7 @@ Web页面需要支持的语言有：
 ## ~~需求标题：GB/T 28181-2011协议~~
 ## ~~优先级：中~~
 ### ~~描述：~~
-~~网络摄像机应支持[GB/T 28181-2011](http：//about：blank)协议。可通过GB/T 28181-2011协议发现、控制和配置网络摄像机。~~
+~~网络摄像机应支持[GB/T 28181-2011](http://about：blank)协议。可通过GB/T 28181-2011协议发现、控制和配置网络摄像机。~~
 ### ~~来源：同类产品~~
 ### ~~验收标准：通过已知符合GB/T 28181-2011协议的客户端能够正确的对接网络摄像机。~~
 ### ~~依赖关系：无~~
