@@ -32,7 +32,7 @@ while [ $# -gt 0 ]; do
   case $1 in
     --help | -h)
       echo "$usage" ; exit ;;
-    -a | --autoreconf)
+    -A | --autoreconf)
       force_ac=yes ; shift ;;
     -C | --clean)
       make_clean=yes ; shift ;;
@@ -124,14 +124,12 @@ function __fatal() {
   echo "FATAL: $*"
   echo "See config.log for detail."
   echo
-  exit 1
 }
 
 function __warn() {
   echo
   echo "WARN: $*"
   echo
-  exit 1
 }
 
 function __display_banner() {
@@ -144,6 +142,7 @@ function __display_banner() {
 
 function fatal() {
   __fatal $* | tee -a ${BUILD_LOG} >&2
+  exit 1
 }
 
 function warn() {
@@ -386,6 +385,36 @@ build_ac_package -c FreeType freetype-2.5.3 ${PREFIX} \
     --without-old-mac-fonts --without-fsspec --without-fsref \
     --without-quickdraw-toolbox --without-quickdraw-carbon \
     --without-ats
+sed -i -e "s;includedir=\"${PREFIX};includedir=\"${SYSROOT}${PREFIX};" \
+    -e "s;libdir=\"${PREFIX};libdir=\"${SYSROOT}${PREFIX};" \
+    ${SYSROOT}${PREFIX}/bin/freetype-config
+
+
+build_ac_package SDL2 SDL2-2.0.1 ${PREFIX} \
+    --disable-audio --disable-video --disable-render \
+    --disable-event --disable-joystick \
+    --disable-haptic --disable-power \
+    --disable-filesystem --enable-threads \
+    --disable-file --disable-loadso --disable-cpuinfo \
+    --disable-assembly --disable-ssemath \
+    --disable-mmx --disable-3dnow --disable-sse --disable-sse2 \
+    --disable-oss --disable-alsa --disable-alsatest \
+    --disable-esd --disable-pulseaudio \
+    --disable-arts  --disable-nas --disable-sndio --disable-diskaudio \
+    --disable-dummyaudio --disable-video-x11 \
+    --disable-directfb --disable-fusionsound \
+    --disable-libudev --disable-dbus \
+    --disable-input-tslib --enable-pthread \
+    --disable-directx --enable-sdl-dlopen \
+    --disable-clock_gettime --enable-rpath \
+    --disable-render-d3d
+
+
+build_ac_package SDL2_ttf SDL2_ttf-2.0.12 ${PREFIX} \
+    --enable-shared --disable-static \
+    --disable-sdltest --without-x \
+    --with-sdl-prefix=${SYSROOT}${PREFIX} \
+    --with-freetype-prefix=${SYSROOT}${PREFIX}
 
 
 build_ac_package YAML yaml-0.1.5 ${PREFIX} \
