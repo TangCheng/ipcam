@@ -4,14 +4,15 @@ me=$(basename $0)
 
 usage="\
 Usage: $0 [-h] [-a] [-c] [-f] [-t v100|v200] [PACKAGE[PREFIX[CONF_OPT]]]
-  -h, --help         print this help, then exit
-  -a, --autoreconf   force run ./autogen.sh and autoreconf
-  -C, --clean        make clean
-  -D, --distclean    make distclean
-  -c, --configure    force run configure
-  -f, --force        force to rebuild
-  -t v100|v200       choose the toolchain [default=v100]
-  -v, --verbose      verbose output
+  -h, --help               print this help, then exit
+  -A, --autoreconf         force run ./autogen.sh and autoreconf
+  -C, --clean              make clean
+  -D, --distclean          make distclean
+  -c, --configure          force run configure
+  -f, --force              force to rebuild
+  -i, --install            force to install
+  -t v100|v200             choose the toolchain [default=v100]
+  -v, --verbose            verbose output
 "
 
 help="
@@ -20,10 +21,11 @@ Try \`$me --help' for more information."
 force_ac=no
 force_conf=no
 force_build=no
-verbose=no
-tc=v100
+force_install=no
 make_clean=no
 make_distclean=no
+verbose=no
+tc=v100
 
 # Parse command line
 while [ $# -gt 0 ]; do
@@ -38,8 +40,10 @@ while [ $# -gt 0 ]; do
       make_distclean=yes ; shift ;;
     -c | --configure)
       force_conf=yes ; shift ;;
-    --force | -f)
+    -f | --force)
       force_build=yes ; shift ;;
+    -i | --install)
+      force_install=yes ; shift ;;
     -t)
       shift ; tc=$1 ; shift ;;
     -v | --verbose)
@@ -115,27 +119,39 @@ if ! [ -d ${SYSROOT} ]; then
   force_build=yes
 fi
 
-function fatal() {
+function __fatal() {
   echo
-  echo "FATAL: $*" >&2
+  echo "FATAL: $*"
   echo "See config.log for detail."
   echo
   exit 1
 }
 
-function warn() {
+function __warn() {
   echo
-  echo "WARN: $*" >&2
+  echo "WARN: $*"
   echo
   exit 1
 }
 
-function display_banner() {
+function __display_banner() {
   echo
   echo "*********************************************************************"
   echo "* Building $1"
   echo "*********************************************************************"
   echo
+}
+
+function fatal() {
+  __fatal $* | tee -a ${BUILD_LOG} >&2
+}
+
+function warn() {
+  __warn $* | tee -a ${BUILD_LOG} >&2
+}
+
+function display_banner() {
+  __display_banner $* | tee -a ${BUILD_LOG}
 }
 
 function patch_lt_objects() {
@@ -166,6 +182,27 @@ function patch_lt_objects() {
 #   $4           optional config options
 #
 function build_ac_package() {
+  local f_ac=${force_ac}
+  local f_conf=${force_conf}
+  local f_build=${force_build}
+  local f_inst=${force_install}
+
+  ## Parse options
+  while [ $# -gt 0 ]; do
+    case $1 in
+      -f)
+        f_build=yes ; shift ;;
+      -A)
+        f_ac=yes ; shift ;;
+      -c)
+        f_conf=yes ; shift ;;
+      -i)
+        f_build=yes ; shift ;;
+      *)  ## Stop option processing
+        break ;;
+    esac
+  done
+
   if [ $# -lt 2 ]; then
     fatal 'Usage build_ac_package NAME PATH [PREFIX] [CONF_OPTS]' >&2
   fi
@@ -175,6 +212,7 @@ function build_ac_package() {
   local pkg_name=$1; shift
   local pkg_path=$1; shift
   local prefix=/usr
+
   if [ $# -gt 0 ]; then
     prefix=$1;   shift
   fi
@@ -185,12 +223,21 @@ function build_ac_package() {
 
   display_banner "$pkg_name at ${SOURCE_HOME}/${pkg_path}"
 
+  ## check if package has already been built succesful
+  if [ -f ${BUILD_TMP}/${pkg_path}-built-ok \
+       -a "x${f_build}" != "xyes" \
+       -a "x${f_inst}" != "xyes" \
+     ];
+  then
+    return
+  fi
+
   ## make distclean
   if [ "x${make_distclean}" = "xyes" ]; then
     if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
       make distclean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
     fi
-    rm -rf ${BUILD_TMP}
+    rm -f ${BUILD_TMP}/${pkg_path}-built-ok
     return
   fi
 
@@ -199,26 +246,20 @@ function build_ac_package() {
     if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
       make clean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
     fi
-    rm -rf ${BUILD_TMP}
-    return
-  fi
-
-  ## check if package has already been built succesful
-  if [ -f ${BUILD_TMP}/${pkg_path}-built-ok -a "x${force_build}" != "xyes" ];
-  then
+    rm -f ${BUILD_TMP}/${pkg_path}-built-ok
     return
   fi
 
   pushd ${SOURCE_HOME}/${pkg_path} > /dev/null
     ## run ./autogen.sh and autoreconf
-    if [ "x${force_ac}" = "xyes" ]; then
+    if [ "x${f_ac}" = "xyes" ]; then
       if [ -f autogen.sh ]; then
         ./autogen.sh -h >>${BUILD_LOG} 2>&1
       fi
       autoreconf >>${BUILD_LOG} 2>&1
     fi
     ## configure
-    if ! [ -f Makefile -a "x${force_conf}" != "xyes" ]; then
+    if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
       ./configure --prefix=${prefix} \
           ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
           || fatal "error building $pkg_name"
@@ -240,16 +281,18 @@ function build_ac_package() {
     if [ "x${ltobjs}" != "x" ]; then
       patch_lt_objects ${prefix} ${ltobjs}
     fi
-    ## 
+    ## Succeed, mark this package
     touch ${BUILD_TMP}/${pkg_path}-built-ok
   popd > /dev/null
 }
 
+## Build listed-packages
 if [ $# -gt 0 ]; then
   pkg=$1 ; shift
   build_ac_package ${pkg} ${pkg} $*
   exit 0
 fi
+
 
 pushd sources/zlib-1.2.8
   display_banner ZLIB
@@ -317,11 +360,32 @@ build_ac_package GLIB glib-2.40.0 ${PREFIX} \
 
 build_ac_package JSON-GLIB json-glib-1.0.0 ${PREFIX} \
     --enable-shared --disable-static \
-   --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf \
-   --disable-man \
-   --disable-glibtest \
-   --disable-introspection \
-   --disable-nls
+    --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf \
+    --disable-man \
+    --disable-glibtest \
+    --disable-introspection \
+    --disable-nls
+
+
+build_ac_package HARFBUZZ harfbuzz-0.9.33 ${PREFIX} \
+    --enable-shared --disable-static \
+    --disable-gtk-doc --disable-gtk-doc-html \
+    --disable-introspection \
+    --without-cairo --without-freetype \
+    --without-icu
+
+
+build_ac_package LIBPNG libpng-1.2.50 ${PREFIX} \
+    --enable-shared --disable-static
+
+
+build_ac_package -c FreeType freetype-2.5.3 ${PREFIX} \
+    --enable-shared --disable-static \
+    --with-zlib --without-bzip2 \
+    --with-png --with-harfbuzz=no \
+    --without-old-mac-fonts --without-fsspec --without-fsref \
+    --without-quickdraw-toolbox --without-quickdraw-carbon \
+    --without-ats
 
 
 build_ac_package YAML yaml-0.1.5 ${PREFIX} \
@@ -358,5 +422,6 @@ build_ac_package IONVIF ionvif /opt \
     ac_cv_func_malloc_0_nonnull=yes
 
 
+echo
 echo "Build completely successful."
 echo
