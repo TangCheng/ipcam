@@ -434,6 +434,17 @@ build_ac_package GOM gom ${PREFIX} \
     --disable-introspection
 
 
+# Build live555
+pushd ${SOURCE_HOME}/live >/dev/null
+  display_banner "LIVE555"
+  ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
+    || fatal "error building live555."
+  make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || fatal "error building live555"
+  make install DESTDIR=${DESTDIR} >>${BUILD_LOG} 2>&1 \
+    || fatal "error building live555."
+popd >/dev/null
+
+
 build_ac_package LIBIPCAM_BASE libipcam_base ${PREFIX} \
     --enable-shared --disable-static
 
