@@ -366,12 +366,12 @@ build_ac_package JSON-GLIB json-glib-1.0.0 ${PREFIX} \
     --disable-nls
 
 
-build_ac_package HARFBUZZ harfbuzz-0.9.33 ${PREFIX} \
-    --enable-shared --disable-static \
-    --disable-gtk-doc --disable-gtk-doc-html \
-    --disable-introspection \
-    --without-cairo --without-freetype \
-    --without-icu
+#build_ac_package HARFBUZZ harfbuzz-0.9.33 ${PREFIX} \
+#    --enable-shared --disable-static \
+#    --disable-gtk-doc --disable-gtk-doc-html \
+#    --disable-introspection \
+#    --without-cairo --without-freetype \
+#    --without-icu
 
 
 build_ac_package LIBPNG libpng-1.2.50 ${PREFIX} \
@@ -440,6 +440,18 @@ pushd ${SOURCE_HOME}/live >/dev/null
   ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
     || fatal "error building live555."
   make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || fatal "error building live555"
+  if [ -f ${SYSROOT}${PREFIX}/lib/libliveMedia* ]; then
+    rm -f ${SYSROOT}${PREFIX}/lib/libliveMedia*
+  fi
+  if [ -f ${SYSROOT}${PREFIX}/lib/libgroupsock* ]; then
+    rm -f ${SYSROOT}${PREFIX}/lib/libgroupsock*
+  fi
+  if [ -f ${SYSROOT}${PREFIX}/lib/libUsageEnvironment* ]; then
+    rm -f ${SYSROOT}${PREFIX}/lib/libUsageEnvironment*
+  fi
+  if [ -f ${SYSROOT}${PREFIX}/lib/libBasicUsageEnvironment* ]; then
+    rm -f ${SYSROOT}${PREFIX}/lib/libBasicUsageEnvironment*
+  fi
   make install DESTDIR=${DESTDIR} >>${BUILD_LOG} 2>&1 \
     || fatal "error building live555."
 popd >/dev/null
@@ -461,6 +473,14 @@ build_ac_package IONVIF ionvif /opt \
     --disable-samples \
     ac_cv_func_malloc_0_nonnull=yes
 
+build_ac_package IMEDIA imedia /opt \
+    --enable-hi3518 --disable-hi3516
+
+CPPFLAGS="-I/rootfs/usr/include/liveMedia \
+          -I/rootfs/usr/include/groupsock \
+          -I/rootfs/usr/include/BasicUsageEnvironment \
+          -I/rootfs/usr/include/UsageEnvironment" \
+build_ac_package IRTSP irtsp /opt
 
 echo
 echo "Build completely successful."
