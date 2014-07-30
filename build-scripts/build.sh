@@ -535,7 +535,8 @@ build_ac_package IMEDIA imedia ${PREFIX} \
     --enable-hi3518 --disable-hi3516
 
 
-CPPFLAGS="-I${SYSROOT}${PREFIX}/include/liveMedia \
+CXXFLAGS="-I${SYSROOT}${PREFIX}/include \
+          -I${SYSROOT}${PREFIX}/include/liveMedia \
           -I${SYSROOT}${PREFIX}/include/groupsock \
           -I${SYSROOT}${PREFIX}/include/BasicUsageEnvironment \
           -I${SYSROOT}${PREFIX}/include/UsageEnvironment" \
