@@ -122,7 +122,7 @@ export CPPFLAGS LDFLAGS
 function __fatal() {
   echo
   echo "FATAL: $*"
-  echo "See config.log for detail."
+  echo "See build.log for detail."
   echo
 }
 
@@ -540,6 +540,7 @@ CXXFLAGS="-I${SYSROOT}${PREFIX}/include \
           -I${SYSROOT}${PREFIX}/include/groupsock \
           -I${SYSROOT}${PREFIX}/include/BasicUsageEnvironment \
           -I${SYSROOT}${PREFIX}/include/UsageEnvironment" \
+LDFLAGS=" -L${SYSROOT}${PREFIX}/lib -lffi" \
 build_ac_package IRTSP irtsp ${PREFIX}
 
 echo
