@@ -3,7 +3,8 @@
 me=$(basename $0)
 
 usage="\
-Usage: $0 [-h] [-a] [-c] [-f] [-t v100|v200] [PACKAGE[PREFIX[CONF_OPT]]]
+Usage: $0 [OPTIONS] [PACKAGE[PREFIX[CONF_OPT]]]
+OPTIONS:
   -h, --help               print this help, then exit
   -A, --autoreconf         force run ./autogen.sh and autoreconf
   -C, --clean              make clean
@@ -11,8 +12,11 @@ Usage: $0 [-h] [-a] [-c] [-f] [-t v100|v200] [PACKAGE[PREFIX[CONF_OPT]]]
   -c, --configure          force run configure
   -f, --force              force to rebuild
   -i, --install            force to install
-  -t v100|v200             choose the toolchain [default=v100]
+  -t, --toolchain=TOOLCHAIN
+                           choose the toolchain [default=v100]
   -v, --verbose            verbose output
+      --prefix=PREFIX      install files in PREFIX
+                           [/usr]
 "
 
 help="
@@ -44,8 +48,12 @@ while [ $# -gt 0 ]; do
       force_build=yes ; shift ;;
     -i | --install)
       force_install=yes ; shift ;;
+    --prefix=*)
+      prefix=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
     -t)
       shift ; tc=$1 ; shift ;;
+    --toolchain=*)
+      tc=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
     -v | --verbose)
       verbose=yes ; shift ;;
     -*)
@@ -84,40 +92,32 @@ fi
 export NR_CPUS
 
 DEF_CONF_OPTS=" --build=${BUILD} --host=${TARGET} "
-PREFIX=/usr
 
 CROSS_COMPILE=${TARGET}-
 
-PREFIX=/usr
 BUILD_HOME=${PWD}
 BUILD_LOG=${BUILD_HOME}/build.log
 SOURCE_HOME=${BUILD_HOME}/sources
 BUILD_TMP=${BUILD_HOME}/tmp
-SYSROOT=${BUILD_HOME}/rootfs_uclibc
+SYSROOT=${BUILD_HOME}/${TARGET_ROOTFS}
 DESTDIR=${SYSROOT}
 
-PKG_CONFIG_PATH=${SYSROOT}/usr/lib/pkgconfig
+PREFIX=/usr
+if [ x"$prefix" != "x" ]; then
+  PREFIX=$prefix
+fi
+
+PKG_CONFIG_PATH=${SYSROOT}${PREFIX}/lib/pkgconfig
 PKG_CONFIG_SYSROOT_DIR=${SYSROOT}
 
 export DESTDIR
 export PKG_CONFIG_PATH PKG_CONFIG_SYSROOT_DIR
 
-CPPFLAGS="-I${SYSROOT}/usr/include"
-LDFLAGS="-L${SYSROOT}/usr/lib -L${SYSROOT}/lib -lstdc++"
-#LDFLAGS+="-Wl,-rpath-link -Wl,${SYSROOT}/usr/lib "\
-#         "-Wl,-rpath -Wl,/lib -Wl,-rpath -Wl,/usr/lib"
+CPPFLAGS="-I${SYSROOT}${PREFIX}/include"
+LDFLAGS="-L${SYSROOT}/lib -L${SYSROOT}${PREFIX}/lib -lstdc++"
+#LDFLAGS+="-Wl,-rpath-link -Wl,${SYSROOT}${PREFIX}/lib "\
+#         "-Wl,-rpath -Wl,/lib -Wl,-rpath -Wl,${PREFIX}/lib"
 export CPPFLAGS LDFLAGS
-
-## Prepare the build environment
-rm -f ${BUILD_LOG}
-if ! [ -d ${SYSROOT} ]; then
-  if [ -f ${TARGET_ROOTFS}.tgz ]; then
-    tar -zvxf ${TARGET_ROOTFS}.tgz
-  else
-    warn "Initial rootfs not found."
-  fi
-  force_build=yes
-fi
 
 function __fatal() {
   echo
@@ -152,6 +152,25 @@ function warn() {
 function display_banner() {
   __display_banner $* | tee -a ${BUILD_LOG}
 }
+
+## Prepare the build environment
+rm -f ${BUILD_LOG}
+
+no_initial_rootfs_warn="\
+Initial rootfs not found.
+
+to build without rootfs, libstdc++.la from the toolchain directory
+show be deleted, which reference the incorrect path."
+
+if ! [ -d ${SYSROOT} ]; then
+  if [ -f ${TARGET_ROOTFS}.tgz ]; then
+    tar -zvxf ${TARGET_ROOTFS}.tgz
+  else
+    echo "$no_initial_rootfs_warn"
+    sleep 2
+  fi
+  force_install=yes
+fi
 
 function patch_lt_objects() {
   if [ $# -lt 2 ]; then
@@ -223,7 +242,7 @@ function build_ac_package() {
   display_banner "$pkg_name at ${SOURCE_HOME}/${pkg_path}"
 
   ## check if package has already been built succesful
-  if [ -f ${BUILD_TMP}/${pkg_path}-built-ok \
+  if [ -f ${BUILD_TMP}/.${pkg_path}-built-ok \
        -a "x${f_build}" != "xyes" \
        -a "x${f_inst}" != "xyes" \
      ];
@@ -236,7 +255,7 @@ function build_ac_package() {
     if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
       make distclean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
     fi
-    rm -f ${BUILD_TMP}/${pkg_path}-built-ok
+    rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
     return
   fi
 
@@ -245,7 +264,7 @@ function build_ac_package() {
     if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
       make clean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
     fi
-    rm -f ${BUILD_TMP}/${pkg_path}-built-ok
+    rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
     return
   fi
 
@@ -264,8 +283,9 @@ function build_ac_package() {
           || fatal "error building $pkg_name"
     fi
     ## build and install
-    make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || fatal "error building ${pkg_name}"
-    ## install to tmp directory to find .la files
+    make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 \
+      || fatal "error building ${pkg_name}"
+    ## install to tmp directory to find all .la files
     make install DESTDIR=${BUILD_TMP} >>${BUILD_LOG} 2>&1 \
       || fatal "error building ${pkg_name}"
     if [ -d ${BUILD_TMP}${prefix}/lib ]; then
@@ -281,7 +301,7 @@ function build_ac_package() {
       patch_lt_objects ${prefix} ${ltobjs}
     fi
     ## Succeed, mark this package
-    touch ${BUILD_TMP}/${pkg_path}-built-ok
+    touch ${BUILD_TMP}/.${pkg_path}-built-ok
   popd > /dev/null
 }
 
@@ -293,29 +313,51 @@ if [ $# -gt 0 ]; then
 fi
 
 
-pushd sources/zlib-1.2.8
+pushd sources/zlib-1.2.8 >/dev/null
   display_banner ZLIB
-  if ! [ -L libz.so ]; then
-    CC=${CROSS_COMPILE}gcc \
-    ./configure --prefix=/usr || exit 1;
-    CC=${CROSS_COMPILE}gcc make -j${NR_CPUS} || exit 1;
+  ## make distclean
+  if [ x"$make_distclean" = "xyes" ]; then
+    make distclean >>${BUILD_LOG} 2>&1
+  ## make clean
+  elif [ x"$make_clean" = "xyes" ]; then
+    make clean >>${BUILD_LOG} 2>&1
+  else
+    if ! [ -f ${BUILD_TMP}/.zlib-1.2.8-built-ok \
+      -a x"$force_build" != "xyes" \
+      -a x"$force_install" != "xyes" ];
+    then
+      ## configure,make and install
+      CC=${CROSS_COMPILE}gcc \
+      ./configure --prefix=${PREFIX} >>${BUILD_LOG} 2>&1 || exit 1;
+      CC=${CROSS_COMPILE}gcc make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || exit 1;
+      CC=${CROSS_COMPILE}gcc make install >>${BUILD_LOG} 2>&1 || exit 1;
+      touch ${BUILD_TMP}/.zlib-1.2.8-built-ok
+    fi
   fi
-  CC=${CROSS_COMPILE}gcc make install || exit 1;
-popd
+popd >/dev/null
 
 
-pushd sources/http-parser-2.3
+pushd sources/http-parser-2.3 >/dev/null
   display_banner HTTP-PARSER
-  CC=${CROSS_COMPILE}gcc \
-  AR=${CROSS_COMPILE}ar \
-  make library
-  cp libhttp_parser.so.2.3 ${SYSROOT}/usr/lib
-  pushd ${SYSROOT}/usr/lib
-    ln -sf libhttp_parser.so.2.3 libhttp_parser.so
-  popd
-  mkdir -p ${SYSROOT}/usr/include
-  cp -v http_parser.h ${SYSROOT}/usr/include
-popd
+  ## clean and distclean
+  if [ x"$make_clean" = "xyes" -o x"$make_distclean" = "xyes" ]; then
+    rm -f ${SYSROOT}${PREFIX}/lib/libhttp_parser.so*
+    rm -f ${SYSROOT}${PREFIX}/include/http_parser.h
+  else
+    ## build and install
+    CC=${CROSS_COMPILE}gcc \
+    AR=${CROSS_COMPILE}ar \
+    make library >>${BUILD_LOG} 2>&1 || fatal "error building HTTP-PARSER"
+    cp -v libhttp_parser.so.2.3 ${SYSROOT}${PREFIX}/lib \
+      >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+    pushd ${SYSROOT}${PREFIX}/lib >/dev/null
+      ln -sf libhttp_parser.so.2.3 libhttp_parser.so
+    popd >/dev/null
+    mkdir -p ${SYSROOT}${PREFIX}/include
+    cp -v http_parser.h ${SYSROOT}${PREFIX}/include \
+      >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+  fi
+popd >/dev/null
 
 
 build_ac_package ZeroMQ zeromq-4.0.4 ${PREFIX} \
@@ -376,6 +418,11 @@ build_ac_package JSON-GLIB json-glib-1.0.0 ${PREFIX} \
 
 build_ac_package LIBPNG libpng-1.2.50 ${PREFIX} \
     --enable-shared --disable-static
+if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
+  sed -i -e "s;includedir=\"${PREFIX};includedir=\"${SYSROOT}${PREFIX};" \
+      -e "s;libdir=\"${PREFIX};libdir=\"${SYSROOT}${PREFIX};" \
+      ${SYSROOT}${PREFIX}/bin/libpng-config
+fi
 
 
 build_ac_package -c FreeType freetype-2.5.3 ${PREFIX} \
@@ -385,9 +432,11 @@ build_ac_package -c FreeType freetype-2.5.3 ${PREFIX} \
     --without-old-mac-fonts --without-fsspec --without-fsref \
     --without-quickdraw-toolbox --without-quickdraw-carbon \
     --without-ats
-sed -i -e "s;includedir=\"${PREFIX};includedir=\"${SYSROOT}${PREFIX};" \
-    -e "s;libdir=\"${PREFIX};libdir=\"${SYSROOT}${PREFIX};" \
-    ${SYSROOT}${PREFIX}/bin/freetype-config
+if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
+  sed -i -e "s;includedir=\"${PREFIX};includedir=\"${SYSROOT}${PREFIX};" \
+      -e "s;libdir=\"${PREFIX};libdir=\"${SYSROOT}${PREFIX};" \
+      ${SYSROOT}${PREFIX}/bin/freetype-config
+fi
 
 
 build_ac_package SDL2 SDL2-2.0.1 ${PREFIX} \
@@ -437,23 +486,31 @@ build_ac_package GOM gom ${PREFIX} \
 # Build live555
 pushd ${SOURCE_HOME}/live >/dev/null
   display_banner "LIVE555"
-  ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
-    || fatal "error building live555."
-  make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || fatal "error building live555"
-  if [ -f ${SYSROOT}${PREFIX}/lib/libliveMedia* ]; then
-    rm -f ${SYSROOT}${PREFIX}/lib/libliveMedia*
+  ## make distclean
+  if [ x"$make_distclean" = "xyes" ]; then
+    make distclean >>${BUILD_LOG} 2>&1
+  ## make clean
+  elif [ x"$make_clean" = "xyes" ]; then
+    make clean >>${BUILD_LOG} 2>&1
+  else
+    if ! [ -f ${BUILD_TMP}/.live555-built-ok \
+        -a x"$force_build" != "xyes" \
+        -a x"$force_install" != "xyes" ];
+    then
+      ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
+        || fatal "error building live555."
+      make -j${NR_CPUS} PREFIX=${PREFIX} \
+        >>${BUILD_LOG} 2>&1 || fatal "error building live555"
+      ## remove last build files before install
+      rm -f ${SYSROOT}${PREFIX}/lib/libliveMedia* 2>/dev/null
+      rm -f ${SYSROOT}${PREFIX}/lib/libgroupsock* 2>/dev/null
+      rm -f ${SYSROOT}${PREFIX}/lib/libUsageEnvironment* 2>/dev/null
+      rm -f ${SYSROOT}${PREFIX}/lib/libBasicUsageEnvironment* 2>/dev/null
+      make install DESTDIR=${DESTDIR} >>${BUILD_LOG} 2>&1 \
+        || fatal "error building live555."
+      touch ${BUILD_TMP}/.live555-built-ok
+    fi
   fi
-  if [ -f ${SYSROOT}${PREFIX}/lib/libgroupsock* ]; then
-    rm -f ${SYSROOT}${PREFIX}/lib/libgroupsock*
-  fi
-  if [ -f ${SYSROOT}${PREFIX}/lib/libUsageEnvironment* ]; then
-    rm -f ${SYSROOT}${PREFIX}/lib/libUsageEnvironment*
-  fi
-  if [ -f ${SYSROOT}${PREFIX}/lib/libBasicUsageEnvironment* ]; then
-    rm -f ${SYSROOT}${PREFIX}/lib/libBasicUsageEnvironment*
-  fi
-  make install DESTDIR=${DESTDIR} >>${BUILD_LOG} 2>&1 \
-    || fatal "error building live555."
 popd >/dev/null
 
 
@@ -461,26 +518,28 @@ build_ac_package LIBIPCAM_BASE libipcam_base ${PREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package ICONFIG iconfig /opt \
+build_ac_package ICONFIG iconfig ${PREFIX} \
     --sysconfdir=/etc
 
 
 NR_CPUS=1 \
-build_ac_package IONVIF ionvif /opt \
+build_ac_package IONVIF ionvif ${PREFIX} \
     --enable-shared --disable-static \
     --disable-ipv6 \
     --disable-ssl --disable-gnutls \
     --disable-samples \
     ac_cv_func_malloc_0_nonnull=yes
 
-build_ac_package IMEDIA imedia /opt \
+
+build_ac_package IMEDIA imedia ${PREFIX} \
     --enable-hi3518 --disable-hi3516
 
-CPPFLAGS="-I/rootfs/usr/include/liveMedia \
-          -I/rootfs/usr/include/groupsock \
-          -I/rootfs/usr/include/BasicUsageEnvironment \
-          -I/rootfs/usr/include/UsageEnvironment" \
-build_ac_package IRTSP irtsp /opt
+
+CPPFLAGS="-I${SYSROOT}${PREFIX}/include/liveMedia \
+          -I${SYSROOT}${PREFIX}/include/groupsock \
+          -I${SYSROOT}${PREFIX}/include/BasicUsageEnvironment \
+          -I${SYSROOT}${PREFIX}/include/UsageEnvironment" \
+build_ac_package IRTSP irtsp ${PREFIX}
 
 echo
 echo "Build completely successful."
