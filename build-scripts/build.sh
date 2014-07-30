@@ -64,6 +64,11 @@ while [ $# -gt 0 ]; do
   esac
 done
 
+if [ x"$verbose" = "xyes" ]; then
+  V=1
+fi
+export V
+
 BUILD=${MACHTYPE}
 case ${tc} in
   v100)
@@ -204,6 +209,7 @@ function build_ac_package() {
   local f_conf=${force_conf}
   local f_build=${force_build}
   local f_inst=${force_install}
+  local b_dir=""
 
   ## Parse options
   while [ $# -gt 0 ]; do
@@ -212,6 +218,10 @@ function build_ac_package() {
         f_build=yes ; shift ;;
       -A)
         f_ac=yes ; shift ;;
+      -b)
+        shift ; b_dir=$1 ; shift ;;
+      -builddir=*)
+        b_dir=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
       -c)
         f_conf=yes ; shift ;;
       -i)
@@ -230,6 +240,7 @@ function build_ac_package() {
   local pkg_name=$1; shift
   local pkg_path=$1; shift
   local prefix=/usr
+  local builddir=${pkg_path}
 
   if [ $# -gt 0 ]; then
     prefix=$1;   shift
@@ -240,6 +251,11 @@ function build_ac_package() {
   fi
 
   display_banner "$pkg_name at ${SOURCE_HOME}/${pkg_path}"
+
+  if [ x"$b_dir" != "x" ]; then
+    builddir=${pkg_path}/${b_dir}
+    mkdir -p ${SOURCE_HOME}/${builddir}
+  fi
 
   ## check if package has already been built succesful
   if [ -f ${BUILD_TMP}/.${pkg_path}-built-ok \
@@ -255,20 +271,23 @@ function build_ac_package() {
     if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
       make distclean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
     fi
+    if [ -f ${SOURCE_HOME}/${builddir}/Makefile ]; then
+      make distclean -C ${SOURCE_HOME}/${builddir} >>${BUILD_LOG} 2>&1
+    fi
     rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
     return
   fi
 
   ## make clean
   if [ "x${make_clean}" = "xyes" ]; then
-    if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
-      make clean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
+    if [ -f ${SOURCE_HOME}/${builddir}/Makefile ]; then
+      make clean -C ${SOURCE_HOME}/${builddir} >>${BUILD_LOG} 2>&1
     fi
     rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
     return
   fi
 
-  pushd ${SOURCE_HOME}/${pkg_path} > /dev/null
+  pushd ${SOURCE_HOME}/${builddir} > /dev/null
     ## run ./autogen.sh and autoreconf
     if [ "x${f_ac}" = "xyes" ]; then
       if [ -f autogen.sh ]; then
@@ -278,7 +297,8 @@ function build_ac_package() {
     fi
     ## configure
     if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
-      ./configure --prefix=${prefix} \
+      ${SOURCE_HOME}/${pkg_path}/configure \
+          --prefix=${prefix} \
           ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
           || fatal "error building $pkg_name"
     fi
@@ -514,16 +534,17 @@ pushd ${SOURCE_HOME}/live >/dev/null
 popd >/dev/null
 
 
-build_ac_package LIBIPCAM_BASE libipcam_base ${PREFIX} \
+build_ac_package -b build-h3518 LIBIPCAM_BASE libipcam_base ${PREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package ICONFIG iconfig ${PREFIX} \
+build_ac_package -b build-hi3518 ICONFIG iconfig ${PREFIX} \
     --sysconfdir=/etc
 
 
 NR_CPUS=1 \
-build_ac_package IONVIF ionvif ${PREFIX} \
+build_ac_package -b build-hi3518 IONVIF ionvif ${PREFIX} \
+    --localstatedir=/var/cache \
     --enable-shared --disable-static \
     --disable-ipv6 \
     --disable-ssl --disable-gnutls \
