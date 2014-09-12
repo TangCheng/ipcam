@@ -364,18 +364,24 @@ pushd sources/http-parser-2.3 >/dev/null
     rm -f ${SYSROOT}${PREFIX}/lib/libhttp_parser.so*
     rm -f ${SYSROOT}${PREFIX}/include/http_parser.h
   else
-    ## build and install
-    CC=${CROSS_COMPILE}gcc \
-    AR=${CROSS_COMPILE}ar \
-    make library >>${BUILD_LOG} 2>&1 || fatal "error building HTTP-PARSER"
-    cp -v libhttp_parser.so.2.3 ${SYSROOT}${PREFIX}/lib \
-      >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
-    pushd ${SYSROOT}${PREFIX}/lib >/dev/null
-      ln -sf libhttp_parser.so.2.3 libhttp_parser.so
-    popd >/dev/null
-    mkdir -p ${SYSROOT}${PREFIX}/include
-    cp -v http_parser.h ${SYSROOT}${PREFIX}/include \
-      >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+    if [ -f ${BUILD_TMP}/.http-parser-2.3-built-ok \
+       -a "x${f_build}" != "xyes" \
+       -a "x${f_inst}" != "xyes" ];
+    then
+      ## build and install
+      CC=${CROSS_COMPILE}gcc \
+      AR=${CROSS_COMPILE}ar \
+      make library >>${BUILD_LOG} 2>&1 || fatal "error building HTTP-PARSER"
+      cp -v libhttp_parser.so.2.3 ${SYSROOT}${PREFIX}/lib \
+        >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+      pushd ${SYSROOT}${PREFIX}/lib >/dev/null
+        ln -sf libhttp_parser.so.2.3 libhttp_parser.so
+      popd >/dev/null
+      mkdir -p ${SYSROOT}${PREFIX}/include
+      cp -v http_parser.h ${SYSROOT}${PREFIX}/include \
+        >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+      touch ${BUILD_TMP}/.http-parser-2.3-built-ok
+    fi
   fi
 popd >/dev/null
 
@@ -461,7 +467,7 @@ fi
 
 build_ac_package SDL2 SDL2-2.0.1 ${PREFIX} \
     --disable-audio --disable-video --disable-render \
-    --disable-event --disable-joystick \
+    --disable-events --disable-joystick \
     --disable-haptic --disable-power \
     --disable-filesystem --enable-threads \
     --disable-file --disable-loadso --disable-cpuinfo \
@@ -471,9 +477,9 @@ build_ac_package SDL2 SDL2-2.0.1 ${PREFIX} \
     --disable-esd --disable-pulseaudio \
     --disable-arts  --disable-nas --disable-sndio --disable-diskaudio \
     --disable-dummyaudio --disable-video-x11 \
-    --disable-directfb --disable-fusionsound \
+    --disable-video-directfb --disable-directfb-shared --disable-fusionsound \
     --disable-libudev --disable-dbus \
-    --disable-input-tslib --enable-pthread \
+    --disable-input-tslib --enable-pthreads --enable-pthread-sem \
     --disable-directx --enable-sdl-dlopen \
     --disable-clock_gettime --enable-rpath \
     --disable-render-d3d
