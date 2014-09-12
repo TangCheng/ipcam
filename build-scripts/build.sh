@@ -310,10 +310,12 @@ function build_ac_package() {
   pushd ${SOURCE_HOME}/${builddir} > /dev/null
     ## run ./autogen.sh and autoreconf
     if [ "x${f_ac}" = "xyes" ]; then
+      pushd ${SOURCE_HOME}/${pkg_path} > /dev/null
       if [ -f autogen.sh ]; then
         ./autogen.sh -h >>${BUILD_LOG} 2>&1
       fi
       autoreconf >>${BUILD_LOG} 2>&1
+      popd > /dev/null
     fi
     ## configure
     if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
