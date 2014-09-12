@@ -15,8 +15,14 @@ OPTIONS:
   -t, --toolchain=TOOLCHAIN
                            choose the toolchain [default=v100]
   -v, --verbose            verbose output
-      --prefix=PREFIX      install files in PREFIX
+      --libprefix=LIBPREFIX   
+                           install library files in LIBPREFIX
                            [/usr]
+      --appprefix=APPPREFIX
+                           install application files in APPPREFIX
+                           [/apps]
+      --chip=CHIP          to build programs to run on CHIP
+                           [hi3516]
 "
 
 help="
@@ -48,8 +54,12 @@ while [ $# -gt 0 ]; do
       force_build=yes ; shift ;;
     -i | --install)
       force_install=yes ; shift ;;
-    --prefix=*)
-      prefix=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
+    --libprefix=*)
+      libprefix=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
+    --appprefix=*)
+      appprefix=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
+    --chip=*)
+      chip=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
     -t)
       shift ; tc=$1 ; shift ;;
     --toolchain=*)
@@ -107,21 +117,31 @@ BUILD_TMP=${BUILD_HOME}/tmp
 SYSROOT=${BUILD_HOME}/${TARGET_ROOTFS}
 DESTDIR=${SYSROOT}
 
-PREFIX=/usr
-if [ x"$prefix" != "x" ]; then
-  PREFIX=$prefix
+LIBPREFIX=/usr
+if [ x"$libprefix" != "x" ]; then
+  LIBPREFIX=$libprefix
 fi
 
-PKG_CONFIG_PATH=${SYSROOT}${PREFIX}/lib/pkgconfig
+APPPREFIX=/apps
+if [ x"$appprefix" != "x" ]; then
+  APPPREFIX=$appprefix
+fi
+
+CHIP=hi3516
+if [ x"$chip" != "x" ]; then
+  CHIP=$chip
+fi
+
+PKG_CONFIG_PATH=${SYSROOT}${LIBPREFIX}/lib/pkgconfig
 PKG_CONFIG_SYSROOT_DIR=${SYSROOT}
 
 export DESTDIR
 export PKG_CONFIG_PATH PKG_CONFIG_SYSROOT_DIR
 
-CPPFLAGS="-I${SYSROOT}${PREFIX}/include"
-LDFLAGS="-L${SYSROOT}/lib -L${SYSROOT}${PREFIX}/lib -lstdc++"
-#LDFLAGS+="-Wl,-rpath-link -Wl,${SYSROOT}${PREFIX}/lib "\
-#         "-Wl,-rpath -Wl,/lib -Wl,-rpath -Wl,${PREFIX}/lib"
+CPPFLAGS="-I${SYSROOT}${LIBPREFIX}/include"
+LDFLAGS="-L${SYSROOT}/lib -L${SYSROOT}${LIBPREFIX}/lib -lstdc++"
+#LDFLAGS+="-Wl,-rpath-link -Wl,${SYSROOT}${LIBPREFIX}/lib "\
+#         "-Wl,-rpath -Wl,/lib -Wl,-rpath -Wl,${LIBPREFIX}/lib"
 export CPPFLAGS LDFLAGS
 
 function __fatal() {
@@ -257,15 +277,6 @@ function build_ac_package() {
     mkdir -p ${SOURCE_HOME}/${builddir}
   fi
 
-  ## check if package has already been built succesful
-  if [ -f ${BUILD_TMP}/.${pkg_path}-built-ok \
-       -a "x${f_build}" != "xyes" \
-       -a "x${f_inst}" != "xyes" \
-     ];
-  then
-    return
-  fi
-
   ## make distclean
   if [ "x${make_distclean}" = "xyes" ]; then
     if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
@@ -284,6 +295,15 @@ function build_ac_package() {
       make clean -C ${SOURCE_HOME}/${builddir} >>${BUILD_LOG} 2>&1
     fi
     rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
+    return
+  fi
+
+  ## check if package has already been built succesful
+  if [ -f ${BUILD_TMP}/.${pkg_path}-built-ok \
+       -a "x${f_build}" != "xyes" \
+       -a "x${f_inst}" != "xyes" \
+     ];
+  then
     return
   fi
 
@@ -325,84 +345,108 @@ function build_ac_package() {
   popd > /dev/null
 }
 
+
+function build_zlib()
+{
+  pushd sources/zlib-1.2.8 >/dev/null
+    display_banner ZLIB
+    ## make distclean
+    if [ x"$make_distclean" = "xyes" ]; then
+      make distclean >>${BUILD_LOG} 2>&1
+      rm -f ${BUILD_TMP}/.zlib-1.2.8-built-ok
+    ## make clean
+    elif [ x"$make_clean" = "xyes" ]; then
+      make clean >>${BUILD_LOG} 2>&1
+      rm -f ${BUILD_TMP}/.zlib-1.2.8-built-ok
+    else
+      if ! [ -f ${BUILD_TMP}/.zlib-1.2.8-built-ok \
+        -a x"$force_build" != "xyes" \
+        -a x"$force_install" != "xyes" ];
+      then
+        ## configure,make and install
+        CC=${CROSS_COMPILE}gcc \
+        ./configure --prefix=${LIBPREFIX} >>${BUILD_LOG} 2>&1 || exit 1;
+        CC=${CROSS_COMPILE}gcc make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || exit 1;
+        CC=${CROSS_COMPILE}gcc make install >>${BUILD_LOG} 2>&1 || exit 1;
+        touch ${BUILD_TMP}/.zlib-1.2.8-built-ok
+      fi
+    fi
+  popd >/dev/null
+}
+
+
+function build_http_parser()
+{
+  pushd sources/http-parser-2.3 >/dev/null
+    display_banner HTTP-PARSER
+    ## clean and distclean
+    if [ x"$make_clean" = "xyes" -o x"$make_distclean" = "xyes" ]; then
+      rm -f ${SYSROOT}${LIBPREFIX}/lib/libhttp_parser.so*
+      rm -f ${SYSROOT}${LIBPREFIX}/include/http_parser.h
+      rm -f ${BUILD_TMP}/.http-parser-2.3-built-ok
+    else
+      if ! [ -f ${BUILD_TMP}/.http-parser-2.3-built-ok \
+         -a "x${f_build}" != "xyes" \
+         -a "x${f_inst}" != "xyes" ];
+      then
+        ## build and install
+        CC=${CROSS_COMPILE}gcc \
+        AR=${CROSS_COMPILE}ar \
+        make library >>${BUILD_LOG} 2>&1 || fatal "error building HTTP-PARSER"
+        cp -v libhttp_parser.so.2.3 ${SYSROOT}${LIBPREFIX}/lib \
+          >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+        pushd ${SYSROOT}${LIBPREFIX}/lib >/dev/null
+          ln -sf libhttp_parser.so.2.3 libhttp_parser.so
+        popd >/dev/null
+        mkdir -p ${SYSROOT}${LIBPREFIX}/include
+        cp -v http_parser.h ${SYSROOT}${LIBPREFIX}/include \
+          >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
+        touch ${BUILD_TMP}/.http-parser-2.3-built-ok
+      fi
+    fi
+  popd >/dev/null
+}
+
+
 ## Build listed-packages
 if [ $# -gt 0 ]; then
   pkg=$1 ; shift
+  if [ x"$pkg" = "xzlib-1.2.8" ] ; then
+    build_zlib
+    exit 0
+  fi
+  if [ x"$pkg" = "xhttp-parser-2.3" ] ; then
+    build_http_parser
+    exit 0
+  fi
   build_ac_package ${pkg} ${pkg} $*
   exit 0
 fi
 
 
-pushd sources/zlib-1.2.8 >/dev/null
-  display_banner ZLIB
-  ## make distclean
-  if [ x"$make_distclean" = "xyes" ]; then
-    make distclean >>${BUILD_LOG} 2>&1
-  ## make clean
-  elif [ x"$make_clean" = "xyes" ]; then
-    make clean >>${BUILD_LOG} 2>&1
-  else
-    if ! [ -f ${BUILD_TMP}/.zlib-1.2.8-built-ok \
-      -a x"$force_build" != "xyes" \
-      -a x"$force_install" != "xyes" ];
-    then
-      ## configure,make and install
-      CC=${CROSS_COMPILE}gcc \
-      ./configure --prefix=${PREFIX} >>${BUILD_LOG} 2>&1 || exit 1;
-      CC=${CROSS_COMPILE}gcc make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 || exit 1;
-      CC=${CROSS_COMPILE}gcc make install >>${BUILD_LOG} 2>&1 || exit 1;
-      touch ${BUILD_TMP}/.zlib-1.2.8-built-ok
-    fi
-  fi
-popd >/dev/null
+build_zlib
 
 
-pushd sources/http-parser-2.3 >/dev/null
-  display_banner HTTP-PARSER
-  ## clean and distclean
-  if [ x"$make_clean" = "xyes" -o x"$make_distclean" = "xyes" ]; then
-    rm -f ${SYSROOT}${PREFIX}/lib/libhttp_parser.so*
-    rm -f ${SYSROOT}${PREFIX}/include/http_parser.h
-  else
-    if [ -f ${BUILD_TMP}/.http-parser-2.3-built-ok \
-       -a "x${f_build}" != "xyes" \
-       -a "x${f_inst}" != "xyes" ];
-    then
-      ## build and install
-      CC=${CROSS_COMPILE}gcc \
-      AR=${CROSS_COMPILE}ar \
-      make library >>${BUILD_LOG} 2>&1 || fatal "error building HTTP-PARSER"
-      cp -v libhttp_parser.so.2.3 ${SYSROOT}${PREFIX}/lib \
-        >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
-      pushd ${SYSROOT}${PREFIX}/lib >/dev/null
-        ln -sf libhttp_parser.so.2.3 libhttp_parser.so
-      popd >/dev/null
-      mkdir -p ${SYSROOT}${PREFIX}/include
-      cp -v http_parser.h ${SYSROOT}${PREFIX}/include \
-        >>${BUILD_LOG} 2>&1 || fatal "error installing HTTP-PARSER"
-      touch ${BUILD_TMP}/.http-parser-2.3-built-ok
-    fi
-  fi
-popd >/dev/null
+build_http_parser
 
 
-build_ac_package ZeroMQ zeromq-4.0.4 ${PREFIX} \
+build_ac_package ZeroMQ zeromq-4.0.4 ${LIBPREFIX} \
     --without-documentation \
     --enable-shared --disable-static
 
 
-build_ac_package CZMQ czmq-2.2.0 ${PREFIX} \
+build_ac_package CZMQ czmq-2.2.0 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package LIGHTTPD lighttpd-1.4.35 ${PREFIX} \
+build_ac_package LIGHTTPD lighttpd-1.4.35 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --without-zlib --without-bzip2 \
     --enable-lfs --disable-ipv6 \
     --without-pcre --disable-mmap
 
 
-build_ac_package GETTEXT gettext-0.18.3.2 ${PREFIX} \
+build_ac_package GETTEXT gettext-0.18.3.2 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-openmp --disable-acl \
     --disable-curses \
@@ -410,11 +454,11 @@ build_ac_package GETTEXT gettext-0.18.3.2 ${PREFIX} \
     --without-bzip2 --without-xz
 
 
-build_ac_package libFFI libffi-3.0.13 ${PREFIX} \
+build_ac_package -b ${TARGET}-gnu libFFI libffi-3.0.13 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package GLIB glib-2.40.0 ${PREFIX} \
+build_ac_package GLIB glib-2.40.0 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --with-libiconv=no --disable-selinux \
     --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf \
@@ -425,7 +469,7 @@ build_ac_package GLIB glib-2.40.0 ${PREFIX} \
     ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
 
 
-build_ac_package JSON-GLIB json-glib-1.0.0 ${PREFIX} \
+build_ac_package JSON-GLIB json-glib-1.0.0 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf \
     --disable-man \
@@ -434,7 +478,7 @@ build_ac_package JSON-GLIB json-glib-1.0.0 ${PREFIX} \
     --disable-nls
 
 
-#build_ac_package HARFBUZZ harfbuzz-0.9.33 ${PREFIX} \
+#build_ac_package HARFBUZZ harfbuzz-0.9.33 ${LIBPREFIX} \
 #    --enable-shared --disable-static \
 #    --disable-gtk-doc --disable-gtk-doc-html \
 #    --disable-introspection \
@@ -442,16 +486,16 @@ build_ac_package JSON-GLIB json-glib-1.0.0 ${PREFIX} \
 #    --without-icu
 
 
-build_ac_package LIBPNG libpng-1.2.50 ${PREFIX} \
+build_ac_package LIBPNG libpng-1.2.50 ${LIBPREFIX} \
     --enable-shared --disable-static
 if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
-  sed -i -e "s;includedir=\"${PREFIX};includedir=\"${SYSROOT}${PREFIX};" \
-      -e "s;libdir=\"${PREFIX};libdir=\"${SYSROOT}${PREFIX};" \
-      ${SYSROOT}${PREFIX}/bin/libpng-config
+  sed -i -e "s;includedir=\"${LIBPREFIX};includedir=\"${SYSROOT}${LIBPREFIX};" \
+      -e "s;libdir=\"${LIBPREFIX};libdir=\"${SYSROOT}${LIBPREFIX};" \
+      ${SYSROOT}${LIBPREFIX}/bin/libpng-config
 fi
 
 
-build_ac_package -c FreeType freetype-2.5.3 ${PREFIX} \
+build_ac_package -c FreeType freetype-2.5.3 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --with-zlib --without-bzip2 \
     --with-png --with-harfbuzz=no \
@@ -459,13 +503,13 @@ build_ac_package -c FreeType freetype-2.5.3 ${PREFIX} \
     --without-quickdraw-toolbox --without-quickdraw-carbon \
     --without-ats
 if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
-  sed -i -e "s;includedir=\"${PREFIX};includedir=\"${SYSROOT}${PREFIX};" \
-      -e "s;libdir=\"${PREFIX};libdir=\"${SYSROOT}${PREFIX};" \
-      ${SYSROOT}${PREFIX}/bin/freetype-config
+  sed -i -e "s;includedir=\"${LIBPREFIX};includedir=\"${SYSROOT}${LIBPREFIX};" \
+      -e "s;libdir=\"${LIBPREFIX};libdir=\"${SYSROOT}${LIBPREFIX};" \
+      ${SYSROOT}${LIBPREFIX}/bin/freetype-config
 fi
 
 
-build_ac_package SDL2 SDL2-2.0.1 ${PREFIX} \
+build_ac_package SDL2 SDL2-2.0.1 ${LIBPREFIX} \
     --disable-audio --disable-video --disable-render \
     --disable-events --disable-joystick \
     --disable-haptic --disable-power \
@@ -485,23 +529,23 @@ build_ac_package SDL2 SDL2-2.0.1 ${PREFIX} \
     --disable-render-d3d
 
 
-build_ac_package SDL2_ttf SDL2_ttf-2.0.12 ${PREFIX} \
+build_ac_package SDL2_ttf SDL2_ttf-2.0.12 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-sdltest --without-x \
-    --with-sdl-prefix=${SYSROOT}${PREFIX} \
-    --with-freetype-prefix=${SYSROOT}${PREFIX}
+    --with-sdl-prefix=${SYSROOT}${LIBPREFIX} \
+    --with-freetype-prefix=${SYSROOT}${LIBPREFIX}
 
 
-build_ac_package YAML yaml-0.1.5 ${PREFIX} \
+build_ac_package YAML yaml-0.1.5 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package SQLITE sqlite-3.8.4.3 ${PREFIX} \
+build_ac_package SQLITE sqlite-3.8.4.3 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
 LDFLAGS="${LDFLAGS} -lintl" \
-build_ac_package GOM gom ${PREFIX} \
+build_ac_package GOM gom ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-glibtest \
     --disable-nls \
@@ -525,13 +569,13 @@ pushd ${SOURCE_HOME}/live >/dev/null
     then
       ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
         || fatal "error building live555."
-      make -j${NR_CPUS} PREFIX=${PREFIX} \
+      make -j${NR_CPUS} PREFIX=${LIBPREFIX} \
         >>${BUILD_LOG} 2>&1 || fatal "error building live555"
       ## remove last build files before install
-      rm -f ${SYSROOT}${PREFIX}/lib/libliveMedia* 2>/dev/null
-      rm -f ${SYSROOT}${PREFIX}/lib/libgroupsock* 2>/dev/null
-      rm -f ${SYSROOT}${PREFIX}/lib/libUsageEnvironment* 2>/dev/null
-      rm -f ${SYSROOT}${PREFIX}/lib/libBasicUsageEnvironment* 2>/dev/null
+      rm -f ${SYSROOT}${LIBPREFIX}/lib/libliveMedia* 2>/dev/null
+      rm -f ${SYSROOT}${LIBPREFIX}/lib/libgroupsock* 2>/dev/null
+      rm -f ${SYSROOT}${LIBPREFIX}/lib/libUsageEnvironment* 2>/dev/null
+      rm -f ${SYSROOT}${LIBPREFIX}/lib/libBasicUsageEnvironment* 2>/dev/null
       make install DESTDIR=${DESTDIR} >>${BUILD_LOG} 2>&1 \
         || fatal "error building live555."
       touch ${BUILD_TMP}/.live555-built-ok
@@ -540,16 +584,16 @@ pushd ${SOURCE_HOME}/live >/dev/null
 popd >/dev/null
 
 
-build_ac_package -b build-h3518 LIBIPCAM_BASE libipcam_base ${PREFIX} \
+build_ac_package -b build-${CHIP} LIBIPCAM_BASE libipcam_base ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package -b build-hi3518 ICONFIG iconfig ${PREFIX} \
+build_ac_package -b build-${CHIP} ICONFIG iconfig ${APPPREFIX} \
     --sysconfdir=/etc
 
 
 NR_CPUS=1 \
-build_ac_package -b build-hi3518 IONVIF ionvif ${PREFIX} \
+build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     --localstatedir=/var/cache \
     --enable-shared --disable-static \
     --disable-ipv6 \
@@ -558,17 +602,17 @@ build_ac_package -b build-hi3518 IONVIF ionvif ${PREFIX} \
     ac_cv_func_malloc_0_nonnull=yes
 
 
-build_ac_package IMEDIA imedia ${PREFIX} \
-    --enable-hi3518 --disable-hi3516
+build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
+    --enable-${CHIP}
 
 
-CXXFLAGS="-I${SYSROOT}${PREFIX}/include \
-          -I${SYSROOT}${PREFIX}/include/liveMedia \
-          -I${SYSROOT}${PREFIX}/include/groupsock \
-          -I${SYSROOT}${PREFIX}/include/BasicUsageEnvironment \
-          -I${SYSROOT}${PREFIX}/include/UsageEnvironment" \
-LDFLAGS=" -L${SYSROOT}${PREFIX}/lib -lffi" \
-build_ac_package IRTSP irtsp ${PREFIX}
+CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
+          -I${SYSROOT}${LIBPREFIX}/include/liveMedia \
+          -I${SYSROOT}${LIBPREFIX}/include/groupsock \
+          -I${SYSROOT}${LIBPREFIX}/include/BasicUsageEnvironment \
+          -I${SYSROOT}${LIBPREFIX}/include/UsageEnvironment" \
+LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
+build_ac_package -b build-${CHIP} IRTSP irtsp ${APPPREFIX}
 
 echo
 echo "Build completely successful."
