@@ -17,7 +17,7 @@ OPTIONS:
   -v, --verbose            verbose output
       --libprefix=LIBPREFIX   
                            install library files in LIBPREFIX
-                           [/usr]
+                           [/apps/usr]
       --appprefix=APPPREFIX
                            install application files in APPPREFIX
                            [/apps]
@@ -117,7 +117,7 @@ BUILD_TMP=${BUILD_HOME}/tmp
 SYSROOT=${BUILD_HOME}/${TARGET_ROOTFS}
 DESTDIR=${SYSROOT}
 
-LIBPREFIX=/usr
+LIBPREFIX=/apps/usr
 if [ x"$libprefix" != "x" ]; then
   LIBPREFIX=$libprefix
 fi
@@ -314,7 +314,9 @@ function build_ac_package() {
       if [ -f autogen.sh ]; then
         ./autogen.sh -h >>${BUILD_LOG} 2>&1
       fi
-      autoreconf >>${BUILD_LOG} 2>&1
+      if [ x"$pkg_name" != "xSDL2_ttf" ]; then
+        autoreconf >>${BUILD_LOG} 2>&1
+      fi
       popd > /dev/null
     fi
     ## configure
@@ -419,6 +421,13 @@ if [ $# -gt 0 ]; then
   fi
   if [ x"$pkg" = "xhttp-parser-2.3" ] ; then
     build_http_parser
+    exit 0
+  fi
+  if [ x"$pkg" = "xiconfig" \
+       -o x"$pkg" = "xionvif" \
+       -o x"$pkg" = "ximedia" \
+       -o x"$pkg" = "xirtsp" ]; then
+    build_ac_package -b build-${CHIP} ${pkg} ${pkg} $*
     exit 0
   fi
   build_ac_package ${pkg} ${pkg} $*
@@ -561,9 +570,11 @@ pushd ${SOURCE_HOME}/live >/dev/null
   ## make distclean
   if [ x"$make_distclean" = "xyes" ]; then
     make distclean >>${BUILD_LOG} 2>&1
+    rm -f ${BUILD_TMP}/.live555-built-ok
   ## make clean
   elif [ x"$make_clean" = "xyes" ]; then
     make clean >>${BUILD_LOG} 2>&1
+    rm -f ${BUILD_TMP}/.live555-built-ok
   else
     if ! [ -f ${BUILD_TMP}/.live555-built-ok \
         -a x"$force_build" != "xyes" \
