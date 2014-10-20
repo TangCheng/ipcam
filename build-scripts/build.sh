@@ -426,7 +426,8 @@ if [ $# -gt 0 ]; then
   if [ x"$pkg" = "xiconfig" \
        -o x"$pkg" = "xionvif" \
        -o x"$pkg" = "ximedia" \
-       -o x"$pkg" = "xirtsp" ]; then
+       -o x"$pkg" = "xirtsp" \
+       -o x"$pkg" = "ximedia_rtsp" ]; then
     build_ac_package -b build-${CHIP} ${pkg} ${pkg} $*
     exit 0
   fi
@@ -476,7 +477,7 @@ build_ac_package GLIB glib-2.40.0 ${LIBPREFIX} \
     --disable-man \
     --disable-xattr \
     --disable-dtrace --disable-systemtap \
-    glib_cv_stack_grows=no glib_cv_uscore=yes \
+    glib_cv_stack_grows=no glib_cv_uscore=no \
     ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
 
 
@@ -615,8 +616,17 @@ build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     ac_cv_func_malloc_0_nonnull=yes
 
 
-build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
-    --enable-${CHIP}
+# build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
+#    --enable-${CHIP}
+
+
+#CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
+#          -I${SYSROOT}${LIBPREFIX}/include/liveMedia \
+#          -I${SYSROOT}${LIBPREFIX}/include/groupsock \
+#          -I${SYSROOT}${LIBPREFIX}/include/BasicUsageEnvironment \
+#          -I${SYSROOT}${LIBPREFIX}/include/UsageEnvironment" \
+#LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
+#build_ac_package -b build-${CHIP} IRTSP irtsp ${APPPREFIX}
 
 
 CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
@@ -625,7 +635,8 @@ CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
           -I${SYSROOT}${LIBPREFIX}/include/BasicUsageEnvironment \
           -I${SYSROOT}${LIBPREFIX}/include/UsageEnvironment" \
 LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
-build_ac_package -b build-${CHIP} IRTSP irtsp ${APPPREFIX}
+build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
+    --enable-${CHIP}
 
 echo
 echo "Build completely successful."

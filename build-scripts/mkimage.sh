@@ -48,8 +48,9 @@ pushd staging
     rm -rf lib/gio
     strip_dirs .
     cp -a ${IPCAM_THIRDPARTIES}/fonts share/
+	cp -a /usr/share/zoneinfo share/
   popd
-  for dir in iconfig imedia ionvif irtsp ionvif-discovery; do
+  for dir in iconfig imedia_rtsp ionvif ionvif-discovery; do
     strip_dirs $dir
   done
   rm -rf include
@@ -60,7 +61,9 @@ popd
 
 mkdir -p images
 ## squashfs
+rm -f images/rootfs_64k.squashfs
 mksquashfs staging/* images/rootfs_64k.squashfs -b 64k -comp xz -no-xattrs
 ## jffs2
+rm -f images/rootfs_64k.jffs2
 mkfs.jffs2 -d staging/ -l -e 0x10000 -o images/rootfs_64k.jffs2
 
