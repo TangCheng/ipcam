@@ -427,7 +427,10 @@ if [ $# -gt 0 ]; then
        -o x"$pkg" = "xionvif" \
        -o x"$pkg" = "ximedia" \
        -o x"$pkg" = "xirtsp" \
-       -o x"$pkg" = "ximedia_rtsp" ]; then
+       -o x"$pkg" = "ximedia_rtsp" \
+       -o x"$pkg" = "xisystem" \
+       -o x"$pkg" = "xiajax" \
+       -o x"$pkg" = "xupload" ]; then
     build_ac_package -b build-${CHIP} ${pkg} ${pkg} $*
     exit 0
   fi
@@ -451,11 +454,15 @@ build_ac_package CZMQ czmq-2.2.0 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
+build_ac_package PCRE pcre-8.36 ${LIBPREFIX}
+
+
+PATH=${LIBPREFIX}/bin:$PATH \
 build_ac_package LIGHTTPD lighttpd-1.4.35 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --without-zlib --without-bzip2 \
     --enable-lfs --disable-ipv6 \
-    --without-pcre --disable-mmap
+    --disable-mmap
 
 
 build_ac_package GETTEXT gettext-0.18.3.2 ${LIBPREFIX} \
@@ -496,6 +503,28 @@ build_ac_package JSON-GLIB json-glib-1.0.0 ${LIBPREFIX} \
 #    --disable-introspection \
 #    --without-cairo --without-freetype \
 #    --without-icu
+
+
+#build_ac_package GSTREAMER gstreamer-0.10.36 ${LIBPREFIX} \
+#    --enable-shared --disable-static \
+#    --disable-loadsave \
+#    --disable-examples --disable-tests \
+#    --disable-gtk-doc --disable-valgrind \
+#    --enable-playbin2
+
+
+#build_ac_package GSTREAMER-PLUGINS-BASE gst-plugins-base-0.10.36 ${LIBPREFIX} \
+#    --enable-shared --disable-static \
+#    --disable-ogg --disable-oggtest \
+#    --disable-pango --disable-theora \
+#    --disable-vorbis --disable-vorbistest \
+#    --disable-freetypetest --disable-examples \
+#    --disable-valgrind --disable-x \
+#    --disable-gnome_vfs --disable-alsl
+
+
+#build_ac_package shmdata shmdata-0.8.14 ${LIBPREFIX} \
+#    --enable-shared --disable-static --with-sysroot=${SYSROOT}
 
 
 build_ac_package LIBPNG libpng-1.2.50 ${LIBPREFIX} \
@@ -598,6 +627,14 @@ pushd ${SOURCE_HOME}/live >/dev/null
 popd >/dev/null
 
 
+NR_CPUS=1 \
+build_ac_package FASTCGI fcgi-2.4.1 ${LIBPREFIX} \
+    --enable-shared --disable-static
+
+
+build_ac_package -b build-${CHIP} UPLOAD upload ${APPPREFIX}
+
+
 build_ac_package -b build-${CHIP} LIBIPCAM_BASE libipcam_base ${LIBPREFIX} \
     --enable-shared --disable-static
 
@@ -605,6 +642,9 @@ build_ac_package -b build-${CHIP} LIBIPCAM_BASE libipcam_base ${LIBPREFIX} \
 build_ac_package -b build-${CHIP} ICONFIG iconfig ${APPPREFIX} \
     --sysconfdir=/etc
 
+build_ac_package -b build-${CHIP} ISYSTEM isystem ${APPPREFIX}
+
+build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
 
 NR_CPUS=1 \
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
@@ -616,7 +656,7 @@ build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     ac_cv_func_malloc_0_nonnull=yes
 
 
-# build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
+#build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
 #    --enable-${CHIP}
 
 

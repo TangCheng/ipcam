@@ -48,9 +48,10 @@ pushd staging
     rm -rf lib/gio
     strip_dirs .
     cp -a ${IPCAM_THIRDPARTIES}/fonts share/
-	cp -a /usr/share/zoneinfo share/
+    cp -a /usr/share/zoneinfo share/
+    mv share/zoneinfo/Asia/{Shanghai,Beijing}
   popd
-  for dir in iconfig imedia_rtsp ionvif ionvif-discovery; do
+  for dir in iconfig iajax isystem imedia_rtsp ionvif ionvif-discovery bin; do
     strip_dirs $dir
   done
   rm -rf include
