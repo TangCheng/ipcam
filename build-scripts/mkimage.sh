@@ -1,6 +1,6 @@
 #!/bin/sh
 
-IPCAM_THIRDPARTIES="/home/tangcheng/devel/ipcam_thirdparties"
+IPCAM_THIRDPARTIES="${HOME}/devel/ipcam/ipcam_thirdparties"
 user=$(whoami)
 
 if [ x"$user" = "xroot" ]; then
@@ -15,6 +15,10 @@ fi
 
 rm -rf staging
 cp -af rootfs_uclibc/apps staging
+cp -af rootfs_uclibc/bin staging
+cp -af rootfs_uclibc/etc staging
+cp -af rootfs_uclibc/ko staging
+cp -af rootfs_uclibc/usr staging
 
 CROSS_COMPILE=arm-hisiv100nptl-linux-
 

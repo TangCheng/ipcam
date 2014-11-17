@@ -127,6 +127,10 @@ if [ x"$appprefix" != "x" ]; then
   APPPREFIX=$appprefix
 fi
 
+if [ ! -d ${BUILD_HOME}/tmp ]; then
+  mkdir -p ${BUILD_HOME}/tmp
+fi
+
 CHIP=hi3516
 if [ x"$chip" != "x" ]; then
   CHIP=$chip
@@ -185,7 +189,7 @@ no_initial_rootfs_warn="\
 Initial rootfs not found.
 
 to build without rootfs, libstdc++.la from the toolchain directory
-show be deleted, which reference the incorrect path."
+should be deleted, which reference the incorrect path."
 
 if ! [ -d ${SYSROOT} ]; then
   if [ -f ${TARGET_ROOTFS}.tgz ]; then
@@ -245,7 +249,7 @@ function build_ac_package() {
       -c)
         f_conf=yes ; shift ;;
       -i)
-        f_build=yes ; shift ;;
+        f_inst=yes ; shift ;;
       *)  ## Stop option processing
         break ;;
     esac
@@ -258,48 +262,47 @@ function build_ac_package() {
   local ltobjs=""
 
   local pkg_name=$1; shift
-  local pkg_path=$1; shift
+  local srcdir=$1; shift
   local prefix=/usr
-  local builddir=${pkg_path}
+  local builddir=${srcdir}
+  local src_path=${SOURCE_HOME}/${srcdir} ## Full path of source directory
+  local build_path=${src_path}            ## Full path of build directory
+  if [ x"$b_dir" != "x" ]; then
+    builddir=${srcdir}/${b_dir}
+    build_path=${src_path}/${b_dir}
+  fi
 
   if [ $# -gt 0 ]; then
     prefix=$1;   shift
   fi
 
-  if ! [ -d ${SOURCE_HOME}/${pkg_path} ]; then
+  if ! [ -d ${src_path} ]; then
     fatal "Package ${pkg_name} not found"
   fi
 
-  display_banner "$pkg_name at ${SOURCE_HOME}/${pkg_path}"
+  display_banner "$pkg_name @ ${src_path}"
 
-  if [ x"$b_dir" != "x" ]; then
-    builddir=${pkg_path}/${b_dir}
-    mkdir -p ${SOURCE_HOME}/${builddir}
-  fi
 
   ## make distclean
   if [ "x${make_distclean}" = "xyes" ]; then
-    if [ -f ${SOURCE_HOME}/${pkg_path}/Makefile ]; then
-      make distclean -C ${SOURCE_HOME}/${pkg_path} >>${BUILD_LOG} 2>&1
+    if [ -f ${build_path}/Makefile ]; then
+      make distclean -C ${build_path} >>${BUILD_LOG} 2>&1
     fi
-    if [ -f ${SOURCE_HOME}/${builddir}/Makefile ]; then
-      make distclean -C ${SOURCE_HOME}/${builddir} >>${BUILD_LOG} 2>&1
-    fi
-    rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
+    rm -f ${BUILD_TMP}/.${srcdir}-built-ok
     return
   fi
 
   ## make clean
   if [ "x${make_clean}" = "xyes" ]; then
-    if [ -f ${SOURCE_HOME}/${builddir}/Makefile ]; then
-      make clean -C ${SOURCE_HOME}/${builddir} >>${BUILD_LOG} 2>&1
+    if [ -f ${build_path}/Makefile ]; then
+      make clean -C ${build_path} >>${BUILD_LOG} 2>&1
     fi
-    rm -f ${BUILD_TMP}/.${pkg_path}-built-ok
+    rm -f ${BUILD_TMP}/.${srcdir}-built-ok
     return
   fi
 
   ## check if package has already been built succesful
-  if [ -f ${BUILD_TMP}/.${pkg_path}-built-ok \
+  if [ -f ${BUILD_TMP}/.${srcdir}-built-ok \
        -a "x${f_build}" != "xyes" \
        -a "x${f_inst}" != "xyes" \
      ];
@@ -307,21 +310,29 @@ function build_ac_package() {
     return
   fi
 
-  pushd ${SOURCE_HOME}/${builddir} > /dev/null
+  ## Touch files
+  pushd ${src_path} > /dev/null
+    find -exec touch -r . \{\} \; > /dev/null 2>&1
+  popd > /dev/null
+
+  mkdir -p ${build_path}
+
+  pushd ${src_path} > /dev/null
     ## run ./autogen.sh and autoreconf
-    if [ "x${f_ac}" = "xyes" ]; then
-      pushd ${SOURCE_HOME}/${pkg_path} > /dev/null
+    if [ "x${f_ac}" = "xyes" -o ! -f configure -o ! -f Makefile.in ]; then
       if [ -f autogen.sh ]; then
         ./autogen.sh -h >>${BUILD_LOG} 2>&1
       fi
       if [ x"$pkg_name" != "xSDL2_ttf" ]; then
         autoreconf >>${BUILD_LOG} 2>&1
       fi
-      popd > /dev/null
     fi
+  popd > /dev/null
+
+  pushd ${build_path} > /dev/null
     ## configure
     if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
-      ${SOURCE_HOME}/${pkg_path}/configure \
+      ${src_path}/configure \
           --prefix=${prefix} \
           ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
           || fatal "error building $pkg_name"
@@ -345,7 +356,7 @@ function build_ac_package() {
       patch_lt_objects ${prefix} ${ltobjs}
     fi
     ## Succeed, mark this package
-    touch ${BUILD_TMP}/.${pkg_path}-built-ok
+    touch ${BUILD_TMP}/.${srcdir}-built-ok
   popd > /dev/null
 }
 
@@ -445,27 +456,27 @@ build_zlib
 build_http_parser
 
 
-build_ac_package ZeroMQ zeromq-4.0.4 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} ZeroMQ zeromq-4.0.4 ${LIBPREFIX} \
     --without-documentation \
     --enable-shared --disable-static
 
 
-build_ac_package CZMQ czmq-2.2.0 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} CZMQ czmq-2.2.0 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package PCRE pcre-8.36 ${LIBPREFIX}
+build_ac_package -b build-${CHIP} PCRE pcre-8.36 ${LIBPREFIX}
 
 
 PATH=${LIBPREFIX}/bin:$PATH \
-build_ac_package LIGHTTPD lighttpd-1.4.35 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} LIGHTTPD lighttpd-1.4.35 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --without-zlib --without-bzip2 \
     --enable-lfs --disable-ipv6 \
     --disable-mmap
 
 
-build_ac_package GETTEXT gettext-0.18.3.2 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} GETTEXT gettext-0.16.1 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-openmp --disable-acl \
     --disable-curses \
@@ -477,7 +488,7 @@ build_ac_package -b ${TARGET}-gnu libFFI libffi-3.0.13 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package GLIB glib-2.40.0 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} GLIB glib-2.40.0 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --with-libiconv=no --disable-selinux \
     --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf \
@@ -488,7 +499,7 @@ build_ac_package GLIB glib-2.40.0 ${LIBPREFIX} \
     ac_cv_func_posix_getpwuid_r=yes ac_cv_func_posix_getgrgid_r=yes
 
 
-build_ac_package JSON-GLIB json-glib-1.0.0 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} JSON-GLIB json-glib-1.0.0 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-gtk-doc --disable-gtk-doc-html --disable-gtk-doc-pdf \
     --disable-man \
@@ -527,7 +538,7 @@ build_ac_package JSON-GLIB json-glib-1.0.0 ${LIBPREFIX} \
 #    --enable-shared --disable-static --with-sysroot=${SYSROOT}
 
 
-build_ac_package LIBPNG libpng-1.2.50 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} LIBPNG libpng-1.2.50 ${LIBPREFIX} \
     --enable-shared --disable-static
 if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
   sed -i -e "s;includedir=\"${LIBPREFIX};includedir=\"${SYSROOT}${LIBPREFIX};" \
@@ -536,7 +547,7 @@ if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
 fi
 
 
-build_ac_package -c FreeType freetype-2.5.3 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} -c FreeType freetype-2.5.3 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --with-zlib --without-bzip2 \
     --with-png --with-harfbuzz=no \
@@ -550,7 +561,7 @@ if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
 fi
 
 
-build_ac_package SDL2 SDL2-2.0.1 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} SDL2 SDL2-2.0.1 ${LIBPREFIX} \
     --disable-audio --disable-video --disable-render \
     --disable-events --disable-joystick \
     --disable-haptic --disable-power \
@@ -570,23 +581,23 @@ build_ac_package SDL2 SDL2-2.0.1 ${LIBPREFIX} \
     --disable-render-d3d
 
 
-build_ac_package SDL2_ttf SDL2_ttf-2.0.12 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} -A SDL2_ttf SDL2_ttf-2.0.12 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-sdltest --without-x \
     --with-sdl-prefix=${SYSROOT}${LIBPREFIX} \
     --with-freetype-prefix=${SYSROOT}${LIBPREFIX}
 
 
-build_ac_package YAML yaml-0.1.5 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} YAML yaml-0.1.5 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
-build_ac_package SQLITE sqlite-3.8.4.3 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} SQLITE sqlite-3.8.4.3 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
 LDFLAGS="${LDFLAGS} -lintl" \
-build_ac_package GOM gom ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} GOM gom ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-glibtest \
     --disable-nls \
@@ -628,7 +639,7 @@ popd >/dev/null
 
 
 NR_CPUS=1 \
-build_ac_package FASTCGI fcgi-2.4.1 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} FASTCGI fcgi-2.4.1 ${LIBPREFIX} \
     --enable-shared --disable-static
 
 
@@ -676,7 +687,18 @@ CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
           -I${SYSROOT}${LIBPREFIX}/include/UsageEnvironment" \
 LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
 build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
-    --enable-${CHIP}
+    --enable-${CHIP} \
+    --with-hisimpp=${HOME}/devel/ipcam/Hi3518_SDK_V1.0.9.0/mpp2
+
+## Install hi3518-apps
+display_banner "HI3518-APPS @ hi3518-apps"
+if [ -d ${SOURCE_HOME}/hi3518-apps ]; then
+  for f in $(ls -I "." -I ".." -I ".git" ${SOURCE_HOME}/hi3518-apps); do
+    cp -a ${SOURCE_HOME}/hi3518-apps/$f ${SYSROOT}/ || exit 1
+  done
+else
+  fatal "hi3518-apps not found"
+fi
 
 echo
 echo "Build completely successful."
