@@ -1,7 +1,59 @@
 #!/bin/sh
 
+me=$(basename $0)
+
+usage="\
+Usage: $0 [-h|-t]
+OPTIONS:
+  -h, --help               print this help, then exit
+  -t  --toolchain=TOOLCHAIN
+                           choose the toolchain [default=v100]
+"
+
+help="
+Try \`$me --help' for more information."
+
 IPCAM_THIRDPARTIES="${HOME}/devel/ipcam/ipcam_thirdparties"
 user=$(whoami)
+
+tc=v100
+
+# Parse command line
+while [ $# -gt 0 ]; do
+  case $1 in
+    --help | -h)
+      echo "$usage" ; exit ;;
+    -t)
+      shift ; tc=$1 ; shift ;;
+    --toolchain=*)
+      tc=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
+    -*)
+      echo "$me: invalid option $1${help}" >&2
+      exit 1 ;;
+    *) # Stop option processing
+      break ;;
+  esac
+done
+
+case ${tc} in
+  v100)
+    if ! which arm-hisiv100nptl-linux-gcc > /dev/null 2>&1; then
+      PATH=${PATH}:/opt/hisi-linux-nptl/arm-hisiv100-linux/target/bin
+      CROSS_COMPILE=arm-hisiv100nptl-linux-
+    fi
+    ;;
+  v200)
+    if ! which arm-hisiv200-linux-gcc > /dev/null 2>&1; then
+      PATH=${PATH}:/opt/hisi-linux/x86-arm/arm-hisiv200-linux/target/bin
+      CROSS_COMPILE=arm-hisiv200-linux-
+    fi
+    ;;
+  *)
+    echo "$me: invalid toolchain ${tc}${help}"
+    exit 1
+    ;;
+esac
+export PATH CROSS_COMPILE
 
 if [ x"$user" = "xroot" ]; then
   echo "Must not be root to run this script" >&2
@@ -20,7 +72,6 @@ cp -af rootfs_uclibc/etc staging
 cp -af rootfs_uclibc/ko staging
 cp -af rootfs_uclibc/usr staging
 
-CROSS_COMPILE=arm-hisiv100nptl-linux-
 
 function strip_dirs() {
   if [ $# -le 0 ]; then
@@ -41,7 +92,10 @@ pushd staging
   pushd usr
     rm -rf include doc share/*
     pushd bin
-    ls | grep -v timer | grep -v sqlite3 | xargs rm -f
+    ls | grep -v timer \
+       | grep -v sqlite3 \
+       | grep -v *gdbserver \
+       | xargs rm -f
     popd
     find -name "*.la" -exec rm -f "{}" \;
     find -name "*.a" -exec rm -f "{}" \;

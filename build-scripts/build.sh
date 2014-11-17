@@ -28,6 +28,9 @@ OPTIONS:
 help="
 Try \`$me --help' for more information."
 
+CFLAGS="-g -O2"
+export CFLAGS
+
 force_ac=no
 force_conf=no
 force_build=no
@@ -234,6 +237,7 @@ function build_ac_package() {
   local f_build=${force_build}
   local f_inst=${force_install}
   local b_dir=""
+  local submod=""
 
   ## Parse options
   while [ $# -gt 0 ]; do
@@ -244,8 +248,12 @@ function build_ac_package() {
         f_ac=yes ; shift ;;
       -b)
         shift ; b_dir=$1 ; shift ;;
-      -builddir=*)
+      --builddir=*)
         b_dir=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
+      -m)
+        shift ; submod=$1 ; shift ;;
+      --submod=*)
+        submod=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
       -c)
         f_conf=yes ; shift ;;
       -i)
@@ -332,7 +340,7 @@ function build_ac_package() {
   pushd ${build_path} > /dev/null
     ## configure
     if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
-      ${src_path}/configure \
+      ${src_path}/${submod}/configure \
           --prefix=${prefix} \
           ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
           || fatal "error building $pkg_name"
@@ -448,6 +456,11 @@ if [ $# -gt 0 ]; then
   build_ac_package ${pkg} ${pkg} $*
   exit 0
 fi
+
+
+build_ac_package -b build-${CHIP} -m /gdb/gdbserver \
+    GDB gdb-7.8.1 ${LIBPREFIX} \
+    --target=${TARGET}
 
 
 build_zlib
@@ -688,7 +701,7 @@ CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
 LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
 build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
     --enable-${CHIP} \
-    --with-hisimpp=${HOME}/devel/ipcam/Hi3518_SDK_V1.0.9.0/mpp2
+    --with-hisimpp=${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2
 
 ## Install hi3518-apps
 display_banner "HI3518-APPS @ hi3518-apps"

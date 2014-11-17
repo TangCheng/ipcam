@@ -1,5 +1,32 @@
 #!/bin/sh
 
+me=$(basename $0)
+
+usage="\
+Usage: $0 [OPTIONS]
+OPTIONS:
+  -h, --help               print this help, then exit
+      --with-hisisdk=DIR   specify the hisi sdk path
+"
+
+help="
+Try \`$me --help' for more information."
+
+# Parse command line
+while [ $# -gt 0 ]; do
+  case $1 in
+    --help | -h)
+      echo "$usage" ; exit ;;
+    --with-hisisdk=*)
+      hisi_sdk=$(expr "X$1" : '[^=]*=\(.*\)') ; shift ;;
+    *)
+      echo "$me: invalid parameter $1${help}" >&2
+      exit 1 ;;
+  esac
+done
+
+HISI_SDK_DIR="Hi3518_SDK_V1.0.9.0"
+HISI_SDK_TARBALL="Hi3518_SDK_V1.0.9.0.tgz"
 BUILD_HOME=$(pushd `dirname %0` > /dev/null 2>&1; pwd; popd > /dev/null 2>&1)
 SOURCE_HOME=${BUILD_HOME}/sources
 
@@ -37,6 +64,23 @@ pushd ${BUILD_HOME} > /dev/null
 
 if [ ! -d ${SOURCE_HOME} ]; then
   mkdir -p ${SOURCE_HOME}
+fi
+
+if [ ! -d ${SOURCE_HOME}/${HISI_SDK_DIR} ]; then
+  if [ "x${hisi_sdk}" = "x" ]; then
+    hisi_sdk=${BUILD_HOME}/${HISI_SDK_TARBALL}
+  fi
+  if [ -f ${hisi_sdk} ]; then
+    tar -zvxf ${hisi_sdk} -C ${SOURCE_HOME} || exit 1
+    pushd ${SOURCE_HOME}/${HISI_SDK_DIR} > /dev/null
+      ./sdk.unpack
+    popd > /dev/null
+  else
+    echo "HISI SDK not found." >&2
+    echo "Try to run:"
+    echo "$0 --with-hisisdk=/path/to/Hi3518_SDK_V1.0.9.0.tgz" >&2
+    exit 1
+  fi
 fi
 
 for pkg in ${pkg_list[@]}; do
