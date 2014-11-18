@@ -318,13 +318,6 @@ function build_ac_package() {
     return
   fi
 
-  ## Touch files
-  pushd ${src_path} > /dev/null
-    find -exec touch -r . \{\} \; > /dev/null 2>&1
-  popd > /dev/null
-
-  mkdir -p ${build_path}
-
   pushd ${src_path} > /dev/null
     ## run ./autogen.sh and autoreconf
     if [ "x${f_ac}" = "xyes" -o ! -f configure -o ! -f Makefile.in ]; then
@@ -340,6 +333,12 @@ function build_ac_package() {
   pushd ${build_path} > /dev/null
     ## configure
     if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
+      ## Touch source files
+      pushd ${src_path} > /dev/null
+        find -exec touch -r . \{\} \; > /dev/null 2>&1
+      popd > /dev/null
+      mkdir -p ${build_path}
+
       ${src_path}/${submod}/configure \
           --prefix=${prefix} \
           ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
@@ -459,8 +458,7 @@ fi
 
 
 build_ac_package -b build-${CHIP} -m /gdb/gdbserver \
-    GDB gdb-7.8.1 ${LIBPREFIX} \
-    --target=${TARGET}
+    GDB gdb-7.8.1 ${LIBPREFIX}
 
 
 build_zlib

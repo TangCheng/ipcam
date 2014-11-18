@@ -32,6 +32,7 @@ SOURCE_HOME=${BUILD_HOME}/sources
 
 url_base="https://github.com/TangCheng"
 pkg_list=(\
+	"ipcam_thirdparties:gdb-7.8.1" \
 	"ipcam_thirdparties:zlib-1.2.8" \
 	"ipcam_thirdparties:http-parser-2.3" \
 	"ipcam_thirdparties:zeromq-4.0.4" \
