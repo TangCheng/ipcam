@@ -330,20 +330,23 @@ function build_ac_package() {
     fi
   popd > /dev/null
 
-  pushd ${build_path} > /dev/null
-    ## configure
-    if ! [ -f Makefile -a "x${f_conf}" != "xyes" ]; then
-      ## Touch source files
-      pushd ${src_path} > /dev/null
-        find -exec touch -r . \{\} \; > /dev/null 2>&1
-      popd > /dev/null
-      mkdir -p ${build_path}
+  ## configure
+  if ! [ -f ${build_path}/Makefile -a "x${f_conf}" != "xyes" ]; then
+    ## Touch source files
+    pushd ${src_path} > /dev/null
+      find -exec touch -r . \{\} \; > /dev/null 2>&1
+    popd > /dev/null
+    mkdir -p ${build_path}
 
-      ${src_path}/${submod}/configure \
-          --prefix=${prefix} \
-          ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
-          || fatal "error building $pkg_name"
-    fi
+    pushd ${build_path} > /dev/null
+    ${src_path}/${submod}/configure \
+        --prefix=${prefix} \
+        ${DEF_CONF_OPTS} $* >>${BUILD_LOG} 2>&1 \
+        || fatal "error building $pkg_name"
+    popd > /dev/null
+  fi
+
+  pushd ${build_path} > /dev/null
     ## build and install
     make -j${NR_CPUS} >>${BUILD_LOG} 2>&1 \
       || fatal "error building ${pkg_name}"
@@ -487,7 +490,7 @@ build_ac_package -b build-${CHIP} LIGHTTPD lighttpd-1.4.35 ${LIBPREFIX} \
     --disable-mmap
 
 
-build_ac_package -b build-${CHIP} GETTEXT gettext-0.16.1 ${LIBPREFIX} \
+build_ac_package -b build-${CHIP} GETTEXT gettext-0.18.3.2 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --disable-openmp --disable-acl \
     --disable-curses \

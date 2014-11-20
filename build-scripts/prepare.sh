@@ -39,7 +39,7 @@ pkg_list=(\
 	"ipcam_thirdparties:czmq-2.2.0" \
 	"ipcam_thirdparties:pcre-8.36" \
 	"ipcam_thirdparties:lighttpd-1.4.35" \
-	"ipcam_thirdparties:gettext-0.16.1" \
+	"ipcam_thirdparties:gettext-0.18.3.2" \
 	"ipcam_thirdparties:libffi-3.0.13" \
 	"ipcam_thirdparties:glib-2.40.0" \
 	"ipcam_thirdparties:json-glib-1.0.0" \
