@@ -13,7 +13,9 @@ OPTIONS:
 help="
 Try \`$me --help' for more information."
 
-IPCAM_THIRDPARTIES="${HOME}/devel/ipcam/ipcam_thirdparties"
+BUILD_HOME=${PWD}
+SOURCE_HOME=${BUILD_HOME}/sources
+IPCAM_THIRDPARTIES="${SOURCE_HOME}/ipcam_thirdparties"
 user=$(whoami)
 
 tc=v100
