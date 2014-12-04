@@ -130,8 +130,10 @@ if [ x"$appprefix" != "x" ]; then
   APPPREFIX=$appprefix
 fi
 
-if [ ! -d ${BUILD_HOME}/tmp ]; then
-  mkdir -p ${BUILD_HOME}/tmp
+if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
+  if [ ! -d ${BUILD_HOME}/tmp ]; then
+    mkdir -p ${BUILD_HOME}/tmp
+  fi
 fi
 
 CHIP=hi3516
@@ -706,12 +708,17 @@ build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
 
 ## Install hi3518-apps
 display_banner "HI3518-APPS @ hi3518-apps"
-if [ -d ${SOURCE_HOME}/hi3518-apps ]; then
-  for f in $(ls -I "." -I ".." -I ".git" ${SOURCE_HOME}/hi3518-apps); do
-    cp -a ${SOURCE_HOME}/hi3518-apps/$f ${SYSROOT}/ || exit 1
-  done
-else
-  fatal "hi3518-apps not found"
+if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
+  if [ -d ${SOURCE_HOME}/hi3518-apps ]; then
+    for f in $(ls -I "." -I ".." -I ".git" ${SOURCE_HOME}/hi3518-apps); do
+      cp -a ${SOURCE_HOME}/hi3518-apps/$f ${SYSROOT}/ || exit 1
+      find ${SYSROOT}/$f -name .\*.swp -delete \
+          -o -name \*.bak -delete \
+          -o -name \*.\*~ -delete
+    done
+  else
+    fatal "hi3518-apps not found"
+  fi
 fi
 
 echo
