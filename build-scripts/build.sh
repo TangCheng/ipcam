@@ -703,6 +703,7 @@ CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
           -I${SYSROOT}${LIBPREFIX}/include/UsageEnvironment" \
 LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
 build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
+    --libdir=${LIBPREFIX}/lib \
     --enable-${CHIP} \
     --with-hisimpp=${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2
 
