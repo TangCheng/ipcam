@@ -640,6 +640,8 @@ pushd ${SOURCE_HOME}/live >/dev/null
       ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
         || fatal "error building live555."
       make -j${NR_CPUS} PREFIX=${LIBPREFIX} \
+        CPPFLAGS="-I${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2/include" \
+	LDFLAGS="-L${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2/lib -lmpi" \
         >>${BUILD_LOG} 2>&1 || fatal "error building live555"
       ## remove last build files before install
       rm -f ${SYSROOT}${LIBPREFIX}/lib/libliveMedia* 2>/dev/null
@@ -672,6 +674,8 @@ build_ac_package -b build-${CHIP} ICONFIG iconfig ${APPPREFIX} \
 build_ac_package -b build-${CHIP} ISYSTEM isystem ${APPPREFIX}
 
 build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
+
+build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX}
 
 NR_CPUS=1 \
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
