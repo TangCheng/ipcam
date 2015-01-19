@@ -640,15 +640,17 @@ pushd ${SOURCE_HOME}/live >/dev/null
       ./genMakefiles armlinux-with-shared-libraries >>${BUILD_LOG} 2>&1 \
         || fatal "error building live555."
       make -j${NR_CPUS} PREFIX=${LIBPREFIX} \
-        CPPFLAGS="-I${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2/include" \
-	LDFLAGS="-L${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2/lib -lmpi" \
+	CROSS_COMPILE=${CROSS_COMPILE} \
+	LDFLAGS=-L${SYSROOT}${APPPREFIX}/usr/lib \
         >>${BUILD_LOG} 2>&1 || fatal "error building live555"
       ## remove last build files before install
       rm -f ${SYSROOT}${LIBPREFIX}/lib/libliveMedia* 2>/dev/null
       rm -f ${SYSROOT}${LIBPREFIX}/lib/libgroupsock* 2>/dev/null
       rm -f ${SYSROOT}${LIBPREFIX}/lib/libUsageEnvironment* 2>/dev/null
       rm -f ${SYSROOT}${LIBPREFIX}/lib/libBasicUsageEnvironment* 2>/dev/null
-      make install DESTDIR=${DESTDIR} >>${BUILD_LOG} 2>&1 \
+      make install PREFIX=${LIBPREFIX} DESTDIR=${DESTDIR} \
+	CROSS_COMPILE=${CROSS_COMPILE} \
+	>>${BUILD_LOG} 2>&1 \
         || fatal "error building live555."
       touch ${BUILD_TMP}/.live555-built-ok
     fi
