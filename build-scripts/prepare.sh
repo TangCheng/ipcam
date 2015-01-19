@@ -57,6 +57,7 @@ pkg_list=(\
 	"iconfig" \
 	"isystem" \
 	"iajax" \
+	"itrain" \
 	"ionvif" \
 	"imedia_rtsp" \
 	"hi3518-apps")
