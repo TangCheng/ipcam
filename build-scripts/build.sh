@@ -484,12 +484,12 @@ build_ac_package -b build-${CHIP} CZMQ czmq-2.2.0 ${LIBPREFIX} \
 build_ac_package -b build-${CHIP} PCRE pcre-8.36 ${LIBPREFIX}
 
 
-PATH=${LIBPREFIX}/bin:$PATH \
 build_ac_package -b build-${CHIP} LIGHTTPD lighttpd-1.4.35 ${LIBPREFIX} \
     --enable-shared --disable-static \
     --without-zlib --without-bzip2 \
     --enable-lfs --disable-ipv6 \
-    --disable-mmap
+    --disable-mmap \
+    PATH=${SYSROOT}${LIBPREFIX}/bin:$PATH
 
 
 build_ac_package -b build-${CHIP} GETTEXT gettext-0.18.3.2 ${LIBPREFIX} \
@@ -679,14 +679,14 @@ build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
 
 build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX}
 
-NR_CPUS=1 \
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     --localstatedir=/var/cache \
     --enable-shared --disable-static \
     --disable-ipv6 \
     --disable-ssl --disable-gnutls \
     --disable-samples \
-    ac_cv_func_malloc_0_nonnull=yes
+    ac_cv_func_malloc_0_nonnull=yes \
+    NR_CPUS=1
 
 
 #build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
@@ -707,7 +707,7 @@ CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
           -I${SYSROOT}${LIBPREFIX}/include/groupsock \
           -I${SYSROOT}${LIBPREFIX}/include/BasicUsageEnvironment \
           -I${SYSROOT}${LIBPREFIX}/include/UsageEnvironment" \
-LDFLAGS=" -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
+LDFLAGS="${LDFLAGS} -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
 build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
     --libdir=${LIBPREFIX}/lib \
     --enable-${CHIP} \
