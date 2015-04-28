@@ -658,9 +658,10 @@ pushd ${SOURCE_HOME}/live >/dev/null
 popd >/dev/null
 
 
-NR_CPUS=1 \
+(NR_CPUS=1 \
 build_ac_package -b build-${CHIP} FASTCGI fcgi-2.4.1 ${LIBPREFIX} \
-    --enable-shared --disable-static
+    --enable-shared --disable-static \
+)
 
 
 build_ac_package -b build-${CHIP} UPLOAD upload ${APPPREFIX}
@@ -671,13 +672,15 @@ build_ac_package -b build-${CHIP} LIBIPCAM_BASE libipcam_base ${LIBPREFIX} \
 
 
 build_ac_package -b build-${CHIP} ICONFIG iconfig ${APPPREFIX} \
-    --sysconfdir=/etc
+    --sysconfdir=/etc \
+    --with-project=dttx
 
 build_ac_package -b build-${CHIP} ISYSTEM isystem ${APPPREFIX}
 
 build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
 
-build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX}
+build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX} \
+    --with-project=dttx
 
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     --localstatedir=/var/cache \
@@ -702,7 +705,7 @@ build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
 #build_ac_package -b build-${CHIP} IRTSP irtsp ${APPPREFIX}
 
 
-CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
+(CXXFLAGS="-I${SYSROOT}${LIBPREFIX}/include \
           -I${SYSROOT}${LIBPREFIX}/include/liveMedia \
           -I${SYSROOT}${LIBPREFIX}/include/groupsock \
           -I${SYSROOT}${LIBPREFIX}/include/BasicUsageEnvironment \
@@ -711,7 +714,8 @@ LDFLAGS="${LDFLAGS} -L${SYSROOT}${LIBPREFIX}/lib -lffi" \
 build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
     --libdir=${LIBPREFIX}/lib \
     --enable-${CHIP} \
-    --with-hisimpp=${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2
+    --with-hisimpp=${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2 \
+    --with-project=dttx)
 
 ## Install hi3518-apps
 display_banner "HI3518-APPS @ hi3518-apps"
