@@ -17,7 +17,7 @@ OPTIONS:
   -v, --verbose            verbose output
       --libprefix=LIBPREFIX   
                            install library files in LIBPREFIX
-                           [/apps/usr]
+                           [/usr]
       --appprefix=APPPREFIX
                            install application files in APPPREFIX
                            [/apps]
@@ -113,6 +113,18 @@ DEF_CONF_OPTS=" --build=${BUILD} --host=${TARGET} "
 
 CROSS_COMPILE=${TARGET}-
 
+CROSS_AR=${CROSS_COMPILE}ar
+CROSS_AS=${CROSS_COMPILE}as
+CROSS_LD=${CROSS_COMPILE}ld
+CROSS_NM=${CROSS_COMPILE}nm
+CROSS_CC=${CROSS_COMPILE}gcc
+CROSS_CPP=${CROSS_COMPILE}cpp
+CROSS_CXX=${CROSS_COMPILE}g++
+CROSS_RANLIB=${CROSS_COMPILE}ranlib
+CROSS_STRIP=${CROSS_COMPILE}strip
+CROSS_OBJCOPY=${CROSS_COMPILE}objcopy
+CROSS_OBJDUMP=${CROSS_COMPILE}objdump
+
 BUILD_HOME=${PWD}
 BUILD_LOG=${BUILD_HOME}/build.log
 SOURCE_HOME=${BUILD_HOME}/sources
@@ -120,7 +132,7 @@ BUILD_TMP=${BUILD_HOME}/tmp
 SYSROOT=${BUILD_HOME}/${TARGET_ROOTFS}
 DESTDIR=${SYSROOT}
 
-LIBPREFIX=/apps/usr
+LIBPREFIX=/usr
 if [ x"$libprefix" != "x" ]; then
   LIBPREFIX=$libprefix
 fi
@@ -435,6 +447,46 @@ function build_http_parser()
 }
 
 
+# Build OpenSSL
+function build_openssl()
+{
+  pushd ${SOURCE_HOME}/openssl-1.0.2 > /dev/null
+    display_banner "OpenSSL"
+    if [ x"make_clean" = "xyes" -o x"$make_distclean" = "xyes" ]; then
+      make clean
+    else
+      if ! [ -f ${BUILD_TMP}/.openssl-1.0.2-built-ok \
+         -a "x${f_build}" != "xyes" \
+         -a "x${f_inst}" != "xyes" ];
+      then
+        CC=${CROSS_CC} \
+        LD=${CROSS_LD} \
+        CPP=${CROSS_CPP} \
+        LD=${CROSS_LD} \
+        AR=${CROSS_AR} \
+        RANLIB=${CROSS_RANLIB} \
+        ./Configure \
+          linux-armv4 \
+          --prefix=${LIBPREFIX} \
+          --openssldir=/etc/ssl \
+          --libdir=/lib \
+          threads shared no-idea no-rc5 \
+          enable-camellia enable-mdc2 enable-tlsext zlib-dynamic \
+        >>${BUILD_LOG} 2>&1 || fatal "error building OpenSSL"
+        make -j ${NR_CPUS} >>${BUILD_LOG} 2>&1 \
+            || fatal "error building OpenSSL"
+        make INSTALL_PREFIX=${SYSROOT} install >>${BUILD_LOG} 2>&1 \
+            || fatal "error building OpenSSL"
+        rm -rf ${SYSROOT}${LIBPREFIX}/lib/ssl
+        rm -rf ${SYSROOT}${LIBPREFIX}/lib/engines
+        rm -f ${SYSROOT}${LIBPREFIX}/bin/c_rehash
+        touch ${BUILD_TMP}/.openssl-1.0.2-built-ok
+      fi
+    fi
+  popd > /dev/null
+}
+
+
 ## Build listed-packages
 if [ $# -gt 0 ]; then
   pkg=$1 ; shift
@@ -467,6 +519,9 @@ build_ac_package -b build-${CHIP} -m /gdb/gdbserver \
 
 
 build_zlib
+
+
+build_openssl
 
 
 build_http_parser
@@ -654,7 +709,7 @@ pushd ${SOURCE_HOME}/live >/dev/null
         || fatal "error building live555."
       make -j${NR_CPUS} PREFIX=${LIBPREFIX} \
 	CROSS_COMPILE=${CROSS_COMPILE} \
-	LDFLAGS=-L${SYSROOT}${APPPREFIX}/usr/lib \
+	LDFLAGS=-L${SYSROOT}${LIBPREFIX}/usr/lib \
         >>${BUILD_LOG} 2>&1 || fatal "error building live555"
       ## remove last build files before install
       rm -f ${SYSROOT}${LIBPREFIX}/lib/libliveMedia* 2>/dev/null
@@ -699,15 +754,16 @@ build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
 build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX} \
     --with-project=dttx
 
+( \
+NR_CPUS=1 \
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     --localstatedir=/var/cache \
     --enable-shared --disable-static \
     --disable-ipv6 \
-    --disable-ssl --disable-gnutls \
+    --enable-ssl --disable-gnutls \
     --disable-samples \
     ac_cv_func_malloc_0_nonnull=yes \
-    NR_CPUS=1
-
+) || exit 1
 
 #build_ac_package -b build-${CHIP} IMEDIA imedia ${APPPREFIX} \
 #    --enable-${CHIP}
