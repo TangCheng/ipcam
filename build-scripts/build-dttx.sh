@@ -453,7 +453,8 @@ function build_openssl()
   pushd ${SOURCE_HOME}/openssl-1.0.2 > /dev/null
     display_banner "OpenSSL"
     if [ x"make_clean" = "xyes" -o x"$make_distclean" = "xyes" ]; then
-      make clean
+      make clean >>${BUILD_LOG} 2>&1
+      rm -f ${BUILD_TMP}/.openssl-1.0.2-built-ok
     else
       if ! [ -f ${BUILD_TMP}/.openssl-1.0.2-built-ok \
          -a "x${f_build}" != "xyes" \
@@ -473,7 +474,7 @@ function build_openssl()
           threads shared no-idea no-rc5 \
           enable-camellia enable-mdc2 enable-tlsext zlib-dynamic \
         >>${BUILD_LOG} 2>&1 || fatal "error building OpenSSL"
-        make -j ${NR_CPUS} >>${BUILD_LOG} 2>&1 \
+        make -j1 >>${BUILD_LOG} 2>&1 \
             || fatal "error building OpenSSL"
         make INSTALL_PREFIX=${SYSROOT} install >>${BUILD_LOG} 2>&1 \
             || fatal "error building OpenSSL"
@@ -741,11 +742,14 @@ build_ac_package -b build-${CHIP} LIBIPCAM_BASE libipcam_base ${LIBPREFIX} \
 
 build_ac_package -b build-${CHIP} ICONFIG iconfig ${APPPREFIX} \
     --sysconfdir=/etc
-( \
+
+if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
+  ( \
     cd ${DESTDIR}${APPPREFIX}/iconfig/config; \
     cp defconfig.DTTX-001.sql defconfig.DCTX-001.sql; \
     cp defconfig.DTTX-002.sql defconfig.DCTX-002.sql \
-)
+  )
+fi
 
 build_ac_package -b build-${CHIP} ISYSTEM isystem ${APPPREFIX}
 
@@ -755,7 +759,6 @@ build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX} \
     --with-project=dttx
 
 ( \
-NR_CPUS=1 \
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
     --localstatedir=/var/cache \
     --enable-shared --disable-static \
@@ -789,14 +792,17 @@ build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
     --enable-${CHIP} \
     --with-hisimpp=${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2 \
 ) || exit 1
-( \
+
+if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
+  ( \
     cd ${DESTDIR}${APPPREFIX}/imedia_rtsp/config; \
     sed -i -r \
         -e '/imedia_rtsp:/,/[^:]*:$/s;project:.*$;project: DTTX;g' \
         -e '/imedia_rtsp:/,/[^:]*:$/s;font:.*$;font: /usr/share/fonts/truetype/simsun.ttf;g' \
         -e '/imedia_rtsp:/,/[^:]*:$/s;image_setting_range:.*$;image_setting_range: 255;g' \
         app.yml
-) || exit 1
+  ) || exit 1
+fi
 
 
 ## Install hi3518-apps
