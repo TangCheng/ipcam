@@ -32,6 +32,7 @@ SOURCE_HOME=${BUILD_HOME}/sources
 
 url_base="https://github.com/TangCheng"
 pkg_list=(\
+	"ipcam_thirdparties:openssl-1.0.2" \
 	"ipcam_thirdparties:gdb-7.8.1" \
 	"ipcam_thirdparties:zlib-1.2.8" \
 	"ipcam_thirdparties:http-parser-2.3" \
@@ -85,6 +86,9 @@ if [ ! -d ${SOURCE_HOME}/${HISI_SDK_DIR} ]; then
   fi
 fi
 
+unset updated_repo
+declare -A updated_repo
+
 for pkg in ${pkg_list[@]}; do
   saved_IFS="${IFS}"
   IFS=":" arr=($pkg)
@@ -93,16 +97,20 @@ for pkg in ${pkg_list[@]}; do
   pkg_dir=${arr[0]}
   pkg_subdir=${arr[1]}
 
-  echo "${pkg_url} => ${pkg_dir}"
-  if [ -d "sources/${pkg_dir}" ]; then
-    pushd "sources/${pkg_dir}" > /dev/null
-      git pull
-    popd > /dev/null
-  else
-    pushd sources > /dev/null
-      git clone ${pkg_url}
-    popd > /dev/null
+  if [ "x${updated_repo[$pkg_dir]}" != "xtrue" ]; then
+    echo "${pkg_url} => ${pkg_dir}"
+    if [ -d "sources/${pkg_dir}" ]; then
+      pushd "sources/${pkg_dir}" > /dev/null
+        git pull
+      popd > /dev/null
+    else
+      pushd sources > /dev/null
+        git clone ${pkg_url}
+      popd > /dev/null
+    fi
+    updated_repo[$pkg_dir]="true"
   fi
+
 
   if [ "x${pkg_subdir}" != "x" ]; then
     ln -sf ${SOURCE_HOME}/${pkg_dir}/${pkg_subdir} ${SOURCE_HOME}/
