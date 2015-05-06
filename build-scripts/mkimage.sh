@@ -84,6 +84,7 @@ function strip_dirs() {
   pushd $1
   for f in $(find -type f); do
     if file $f | grep "not stripped" >/dev/null 2>&1; then
+      chmod u+w $f
       ${CROSS_COMPILE}strip -s $f
     fi
   done
@@ -106,9 +107,10 @@ pushd staging
     rm -rf lib/glib-2.0/
     rm -rf lib/gettext
     rm -rf lib/gio
+    rm -f  lib/libgettext*
     strip_dirs .
-    cp -a ${IPCAM_THIRDPARTIES}/fonts share/
-    cp -a /usr/share/zoneinfo share/
+    cp -af ${IPCAM_THIRDPARTIES}/fonts share/
+    cp -af /usr/share/zoneinfo share/
     mv share/zoneinfo/Asia/{Shanghai,Beijing}
   popd
   for dir in iconfig iajax isystem imedia_rtsp ionvif ionvif-discovery bin; do
