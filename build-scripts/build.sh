@@ -755,8 +755,7 @@ build_ac_package -b build-${CHIP} ISYSTEM isystem ${APPPREFIX}
 
 build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
 
-build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX} \
-    --with-project=dttx
+build_ac_package -b build-${CHIP} ITRAIN itrain ${APPPREFIX}
 
 ( \
 build_ac_package -b build-${CHIP} IONVIF ionvif ${APPPREFIX} \
@@ -792,17 +791,6 @@ build_ac_package -b build-${CHIP} IMEDIA_RTSP imedia_rtsp ${APPPREFIX} \
     --enable-${CHIP} \
     --with-hisimpp=${SOURCE_HOME}/Hi3518_SDK_V1.0.9.0/mpp2 \
 ) || exit 1
-
-if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
-  ( \
-    cd ${DESTDIR}${APPPREFIX}/imedia_rtsp/config; \
-    sed -i -r \
-        -e '/imedia_rtsp:/,/[^:]*:$/s;project:.*$;project: DTTX;g' \
-        -e '/imedia_rtsp:/,/[^:]*:$/s;font:.*$;font: /usr/share/fonts/truetype/simsun.ttf;g' \
-        -e '/imedia_rtsp:/,/[^:]*:$/s;image_setting_range:.*$;image_setting_range: 255;g' \
-        app.yml
-  ) || exit 1
-fi
 
 
 ## Install hi3518-apps
