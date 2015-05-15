@@ -110,8 +110,8 @@ pushd staging
     rm -f  lib/libgettext*
     strip_dirs .
     cp -af ${IPCAM_THIRDPARTIES}/fonts share/
-    cp -af /usr/share/zoneinfo share/
-    mv share/zoneinfo/Asia/{Shanghai,Beijing}
+#    cp -af /usr/share/zoneinfo share/
+#    mv share/zoneinfo/Asia/{Shanghai,Beijing}
   popd
   for dir in iconfig iajax isystem imedia_rtsp ionvif ionvif-discovery bin; do
     strip_dirs $dir
