@@ -41,14 +41,14 @@ case ${tc} in
   v100)
     if ! which arm-hisiv100nptl-linux-gcc > /dev/null 2>&1; then
       PATH=${PATH}:/opt/hisi-linux-nptl/arm-hisiv100-linux/target/bin
-      CROSS_COMPILE=arm-hisiv100nptl-linux-
     fi
+    CROSS_COMPILE=arm-hisiv100nptl-linux-
     ;;
   v200)
     if ! which arm-hisiv200-linux-gcc > /dev/null 2>&1; then
       PATH=${PATH}:/opt/hisi-linux/x86-arm/arm-hisiv200-linux/target/bin
-      CROSS_COMPILE=arm-hisiv200-linux-
     fi
+    CROSS_COMPILE=arm-hisiv200-linux-
     ;;
   *)
     echo "$me: invalid toolchain ${tc}${help}"
