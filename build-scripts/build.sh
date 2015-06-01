@@ -743,14 +743,6 @@ build_ac_package -b build-${CHIP} LIBIPCAM_BASE libipcam_base ${LIBPREFIX} \
 build_ac_package -b build-${CHIP} ICONFIG iconfig ${APPPREFIX} \
     --sysconfdir=/etc
 
-if [ x"$make_clean" != "xyes" -a x"$make_distclean" != "xyes" ]; then
-  ( \
-    cd ${DESTDIR}${APPPREFIX}/iconfig/config; \
-    cp defconfig.DTTX-001.sql defconfig.DCTX-001.sql; \
-    cp defconfig.DTTX-002.sql defconfig.DCTX-002.sql \
-  )
-fi
-
 build_ac_package -b build-${CHIP} ISYSTEM isystem ${APPPREFIX}
 
 build_ac_package -b build-${CHIP} IAJAX iajax ${APPPREFIX}
